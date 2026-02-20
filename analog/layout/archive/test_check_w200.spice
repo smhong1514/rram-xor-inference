@@ -1,0 +1,6 @@
+* NGSPICE file created from test_check_w200.ext - technology: sky130B
+
+.subckt test_check_w200
+X0 a_8_n100# a_n17_n145# a_n38_n100# SUB sky130_fd_pr__nfet_01v8 ad=0.6 pd=4.6 as=0.6 ps=4.6 w=2 l=0.16
+.ends
+

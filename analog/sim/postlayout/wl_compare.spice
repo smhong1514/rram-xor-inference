@@ -1,0 +1,93 @@
+* WL Driver: Schematic vs Layout Comparison
+* Level shifter: 1.8V digital → VWL high-voltage output
+
+.lib "$PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice" tt
+
+** ============================================================
+** Schematic Netlist (from xschem)
+** ============================================================
+.subckt wl_sch IN OUT VDD VWL VSS
+XMP0 INB IN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1
+XMN0 INB IN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1
+XMP1 Q QB VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=1 nf=1
+XMN1 Q IN VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1
+XMP2 QB Q VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=1 nf=1
+XMN2 QB INB VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1
+XMP3 OUT Q VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=4 nf=1
+XMN3 OUT Q VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1
+.ends
+
+** ============================================================
+** Layout-Extracted Netlist (from Magic)
+** ============================================================
+.subckt wl_lay IN OUT VDD VWL VSS
+X0 OUT a_423_138# VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X1 a_423_138# IN VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X2 a_342_589# a_57_213# VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X3 a_57_213# IN VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X4 OUT a_423_138# VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.5
+X5 a_57_213# IN VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X6 a_423_138# a_342_589# VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+X7 a_342_589# a_423_138# VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+.ends
+
+** ============================================================
+** Testbench
+** ============================================================
+VDD vdd 0 1.8
+VVWL vwl 0 3.3
+VSS vss 0 0
+
+* IN: 1.8V digital pulse, period=40ns
+VIN in 0 PULSE(0 1.8 10n 0.1n 0.1n 19.8n 40n)
+
+* Schematic instance
+X_sch in out_sch vdd vwl vss wl_sch
+C_sch out_sch 0 20f
+
+* Layout instance
+X_lay in out_lay vdd vwl vss wl_lay
+C_lay out_lay 0 20f
+
+.tran 0.01n 100n
+
+.control
+run
+
+wrdata $PROJECT_ROOT/analog/sim/postlayout/wl_compare.csv v(in) v(out_sch) v(out_lay)
+
+echo ""
+echo "===== WL Driver: Schematic vs Layout ====="
+echo ""
+
+echo "--- IN=1 (t=25ns): OUT should be VWL=3.3V ---"
+meas tran sch_out_high FIND v(out_sch) AT=25n
+meas tran lay_out_high FIND v(out_lay) AT=25n
+
+echo "--- IN=0 (t=45ns): OUT should be 0V ---"
+meas tran sch_out_low FIND v(out_sch) AT=45n
+meas tran lay_out_low FIND v(out_lay) AT=45n
+
+echo "--- Rise Time (10% to 90% of VWL) ---"
+meas tran t_sch_rise TRIG v(out_sch) VAL=0.33 RISE=1 TARG v(out_sch) VAL=2.97 RISE=1
+meas tran t_lay_rise TRIG v(out_lay) VAL=0.33 RISE=1 TARG v(out_lay) VAL=2.97 RISE=1
+
+echo "--- Fall Time (90% to 10% of VWL) ---"
+meas tran t_sch_fall TRIG v(out_sch) VAL=2.97 FALL=1 TARG v(out_sch) VAL=0.33 FALL=1
+meas tran t_lay_fall TRIG v(out_lay) VAL=2.97 FALL=1 TARG v(out_lay) VAL=0.33 FALL=1
+
+echo "--- Propagation Delay (IN 50% → OUT 50%) ---"
+meas tran t_in_rise WHEN v(in)=0.9 RISE=1
+meas tran t_sch_out_rise WHEN v(out_sch)=1.65 RISE=1
+meas tran t_lay_out_rise WHEN v(out_lay)=1.65 RISE=1
+let tpd_sch = t_sch_out_rise - t_in_rise
+let tpd_lay = t_lay_out_rise - t_in_rise
+echo "Schematic tpd_rise:"
+print tpd_sch
+echo "Layout tpd_rise:"
+print tpd_lay
+
+quit
+.endc
+
+.end

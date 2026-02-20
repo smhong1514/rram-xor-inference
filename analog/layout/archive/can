@@ -1,0 +1,29 @@
+magic
+tech sky130B
+timestamp 1770881969
+<< checkpaint >>
+rect -630 -630 1130 830
+<< nwell >>
+rect 0 0 200 200
+<< psubdiffcont >>
+rect 300 0 500 200
+<< nsubdiffcont >>
+rect 20 20 180 180
+<< locali >>
+rect 0 180 200 200
+rect 0 20 20 180
+rect 180 20 200 180
+rect 0 0 200 20
+<< viali >>
+rect 20 20 180 180
+rect 320 20 480 180
+<< metal1 >>
+rect 0 180 200 200
+rect 0 20 20 180
+rect 180 20 200 180
+rect 0 0 200 20
+rect 300 180 500 200
+rect 300 20 320 180
+rect 480 20 500 180
+rect 300 0 500 20
+<< end >>

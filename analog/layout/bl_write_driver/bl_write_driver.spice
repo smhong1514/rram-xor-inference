@@ -1,0 +1,13 @@
+* NGSPICE file created from bl_write_driver.ext - technology: sky130B
+
+.subckt bl_write_driver EN DATA BL VDD VSS
+X0 a_186_658# a_57_128# VDD VDD sky130_fd_pr__pfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X1 BL a_291_609# a_186_658# VDD sky130_fd_pr__pfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X2 a_57_128# EN VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X3 a_291_609# DATA VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X4 a_57_128# EN VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X5 a_186_128# EN VSS VSS sky130_fd_pr__nfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X6 BL a_291_609# a_186_128# VSS sky130_fd_pr__nfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X7 a_291_609# DATA VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+.ends
+

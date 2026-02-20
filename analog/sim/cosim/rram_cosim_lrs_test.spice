@@ -1,0 +1,287 @@
+* RRAM Co-Sim LRS Diagnostic Test
+* Cell(1,2) initialized as LRS (Tfilament_0=4.5nm)
+* Tests if READ chain can correctly detect LRS → resp_data=1
+.title RRAM_COSIM_LRS_TEST
+
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+
+** RRAM cell subcircuit
+.subckt sky130_fd_pr_reram__reram_cell TE BE Tfilament_0=3.3e-9
+.model rram_local sky130_fd_pr_reram__reram_cell
++ Tfilament_0 = Tfilament_0
++ area_ox = 0.1024e-12
++ Tox = 5.0e-9
++ Tfilament_max = 4.9e-9
++ Tfilament_min = 3.3e-9
++ Eact_generation = 1.501
++ Eact_recombination = 1.500
++ I_k1 = 6.140e-5
++ Tfilament_ref = 4.7249e-9
++ V_ref = 0.430
++ velocity_k1 = 150
++ gamma_k0 = 16.5
++ gamma_k1 = -1.25
++ Temperature_0 = 300
++ C_thermal = 3.1825e-16
++ tau_thermal = 0.23e-9
++ t_step = 1.0e-9
+N1 TE BE rram_local
+.ends sky130_fd_pr_reram__reram_cell
+
+** WL Driver subcircuit
+.subckt wl_driver IN OUT VDD VWL VSS
+XMP0 INB IN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN0 INB IN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP1 Q QB VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN1 Q IN VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP2 QB Q VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN2 QB INB VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP3 OUT Q VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMN3 OUT Q VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+.ends wl_driver
+
+** Sense Amplifier subcircuit
+.subckt sense_amp SAE INP INN Q QB VDD VSS
+XMP3 Q SAE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP4 QB SAE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP5 QB SAE Q VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP1 Q QB VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMP2 QB Q VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN1 Q QB FN1 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN2 QB Q FN2 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN3 FN1 INP TAIL VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMN4 FN2 INN TAIL VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMN0 TAIL SAE VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+.ends sense_amp
+
+** RRAM 4x4 Array - Cell(1,2) is LRS for diagnostic
+.subckt rram_4x4_lrs BL0 BL1 BL2 BL3 WL0 WL1 WL2 WL3 SL0 SL1 SL2 SL3 GND
+* Row 0
+XR00 BL0 n00 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM00 n00 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR01 BL1 n01 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM01 n01 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR02 BL2 n02 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM02 n02 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR03 BL3 n03 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM03 n03 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+* Row 1 - Cell(1,2) = LRS (Tfilament=4.5nm) for diagnostic
+XR10 BL0 n10 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM10 n10 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR11 BL1 n11 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM11 n11 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+* >>> Cell(1,2) = LRS (was HRS=3.5nm, now LRS=4.5nm for testing)
+XR12 BL2 n12 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM12 n12 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR13 BL3 n13 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM13 n13 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+* Rows 2,3 same as original
+XR20 BL0 n20 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM20 n20 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR21 BL1 n21 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM21 n21 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR22 BL2 n22 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM22 n22 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR23 BL3 n23 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM23 n23 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR30 BL0 n30 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM30 n30 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR31 BL1 n31 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM31 n31 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR32 BL2 n32 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM32 n32 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR33 BL3 n33 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM33 n33 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+.ends rram_4x4_lrs
+
+** POWER SUPPLIES
+VDD    vdd     0 DC 1.8
+VWLP   vwl_pwr 0 DC 3.3
+VREF   vref    0 DC 0.9
+VWRITE vwrite  0 DC 3.0
+
+** CLOCK
+A_clk 0 clk_d clkmodel
+.model clkmodel d_osc (cntl_array=[-1 1] freq_array=[100Meg 100Meg])
+
+** COMMAND: Single READ at 45ns (Row=1, Col=2)
+V_rst rst_a 0 PWL(0 0 24n 0 25n 1.8)
+V_cv cv_a 0 PWL(0 0 44n 0 45n 1.8 80n 1.8 81n 0)
+V_cw cw_a 0 DC 0
+V_cr1 cr1_a 0 DC 0
+V_cr0 cr0_a 0 DC 1.8
+V_cc1 cc1_a 0 DC 1.8
+V_cc0 cc0_a 0 DC 0
+V_cd cd_a 0 DC 0
+
+** ADC/DAC BRIDGES
+.model adc1 adc_bridge (in_low=0.6 in_high=1.2 rise_delay=0.1n fall_delay=0.1n)
+A_adc_cmd [rst_a cv_a cw_a cr1_a cr0_a cc1_a cc0_a cd_a]
++         [rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d]
++         adc1
+A_adc_sa [sa_q3 sa_q2 sa_q1 sa_q0]
++        [bs3_d bs2_d bs1_d bs0_d]
++        adc1
+
+** d_cosim CONTROLLER
+A_ctrl [clk_d rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d bs3_d bs2_d bs1_d bs0_d]
++      [cmd_ready_d resp_valid_d resp_data_d
++       wl3_d wl2_d wl1_d wl0_d
++       sl3_d sl2_d sl1_d sl0_d
++       bl_en3_d bl_en2_d bl_en1_d bl_en0_d
++       bl_data3_d bl_data2_d bl_data1_d bl_data0_d
++       write_en_d read_en_d]
++      null cosim_ctrl
+.model cosim_ctrl d_cosim (simulation="./controller.so" delay=1n)
+
+** DAC BRIDGES
+.model dac1 dac_bridge (out_low=0 out_high=1.8 out_undef=0.9
++                       t_rise=0.5n t_fall=0.5n)
+A_dac_ctrl [cmd_ready_d resp_valid_d resp_data_d write_en_d read_en_d]
++          [rdy_a rv_a rd_a wen_a ren_a]
++          dac1
+A_dac_wl [wl3_d wl2_d wl1_d wl0_d]
++        [wl_in3 wl_in2 wl_in1 wl_in0]
++        dac1
+A_dac_sl [sl3_d sl2_d sl1_d sl0_d]
++        [sl_en3 sl_en2 sl_en1 sl_en0]
++        dac1
+A_dac_blen [bl_en3_d bl_en2_d bl_en1_d bl_en0_d]
++          [bl_en_a3 bl_en_a2 bl_en_a1 bl_en_a0]
++          dac1
+A_dac_bldat [bl_data3_d bl_data2_d bl_data1_d bl_data0_d]
++           [bl_data_a3 bl_data_a2 bl_data_a1 bl_data_a0]
++           dac1
+
+** BL PRECHARGE CONTROL
+A_or_wl [wl3_d wl2_d wl1_d wl0_d] prech_en_d d_or_model
+.model d_or_model d_or (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_dac_prech [prech_en_d] [prech_en_a] dac1
+
+** ANALOG SIGNAL CHAIN
+x_wld0 wl_in0 wl0 vdd vwl_pwr 0 wl_driver
+x_wld1 wl_in1 wl1 vdd vwl_pwr 0 wl_driver
+x_wld2 wl_in2 wl2 vdd vwl_pwr 0 wl_driver
+x_wld3 wl_in3 wl3 vdd vwl_pwr 0 wl_driver
+
+XMP_pre0 bl0 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP_pre1 bl1 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP_pre2 bl2 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP_pre3 bl3 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+
+C_bl0 bl0 0 100f
+C_bl1 bl1 0 100f
+C_bl2 bl2 0 100f
+C_bl3 bl3 0 100f
+
+XMN_sl0 rram_sl0 sl_en0 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+XMN_sl1 rram_sl1 sl_en1 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+XMN_sl2 rram_sl2 sl_en2 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+XMN_sl3 rram_sl3 sl_en3 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+
+** BL Write Drivers (not used in this test, but needed for circuit)
+.subckt bl_write_driver EN DATA BL VDD VSS
+XMP0 EN_B EN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMN0 EN_B EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP3 DATA_B DATA VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMN3 DATA_B DATA VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP1 NET_P EN_B VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMP2 BL DATA_B NET_P VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMN2 BL DATA_B NET_N VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMN1 NET_N EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+.ends bl_write_driver
+
+x_blw0 bl_en_a0 bl_data_a0 bl0 vwrite 0 bl_write_driver
+x_blw1 bl_en_a1 bl_data_a1 bl1 vwrite 0 bl_write_driver
+x_blw2 bl_en_a2 bl_data_a2 bl2 vwrite 0 bl_write_driver
+x_blw3 bl_en_a3 bl_data_a3 bl3 vwrite 0 bl_write_driver
+
+x_rram bl0 bl1 bl2 bl3 wl0 wl1 wl2 wl3
++      rram_sl0 rram_sl1 rram_sl2 rram_sl3 0 rram_4x4_lrs
+
+x_sa0 ren_a bl0 vref sa_q0 sa_qb0 vdd 0 sense_amp
+x_sa1 ren_a bl1 vref sa_q1 sa_qb1 vdd 0 sense_amp
+x_sa2 ren_a bl2 vref sa_q2 sa_qb2 vdd 0 sense_amp
+x_sa3 ren_a bl3 vref sa_q3 sa_qb3 vdd 0 sense_amp
+
+.control
+pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+save all
+tran 0.5n 200n
+
+echo "=== LRS Diagnostic: READ Cell(1,2)=LRS(4.5nm) ==="
+echo "Expected: resp_data=1 (LRS → BL discharges fast → BL < VREF)"
+echo ""
+* BL2 discharge trajectory
+meas tran bl2_60 FIND v(bl2) AT=60n
+meas tran bl2_65 FIND v(bl2) AT=65n
+meas tran bl2_70 FIND v(bl2) AT=70n
+meas tran bl2_75 FIND v(bl2) AT=75n
+meas tran bl2_80 FIND v(bl2) AT=80n
+meas tran bl2_85 FIND v(bl2) AT=85n
+meas tran bl2_90 FIND v(bl2) AT=90n
+meas tran bl2_95 FIND v(bl2) AT=95n
+meas tran bl2_100 FIND v(bl2) AT=100n
+* SA timing
+meas tran ren_95 FIND v(ren_a) AT=95n
+meas tran ren_100 FIND v(ren_a) AT=100n
+meas tran saq2_100 FIND v(sa_q2) AT=100n
+meas tran saq2_105 FIND v(sa_q2) AT=105n
+* Response
+meas tran rv_125 FIND v(rv_a) AT=125n
+meas tran rv_130 FIND v(rv_a) AT=130n
+meas tran rd_125 FIND v(rd_a) AT=125n
+meas tran rd_130 FIND v(rd_a) AT=130n
+echo "==========================="
+.endc
+.end

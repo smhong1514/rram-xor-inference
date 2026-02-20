@@ -1,0 +1,10 @@
+magic
+tech sky130B
+timestamp 1770876583
+<< checkpaint >>
+rect -630 -630 738 918
+use dev_hv_nfet_w200  dev_hv_nfet_w200_0
+timestamp 1770876393
+transform 1 0 54 0 1 144
+box -54 -144 54 144
+<< end >>

@@ -1,0 +1,15 @@
+* NGSPICE file created from sense_amp.ext - technology: sky130B
+
+.subckt sense_amp SAE INP INN Q QB VDD VSS
+X0 Q SAE VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X1 QB Q VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X2 a_15_458# INP a_15_128# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X3 QB SAE Q VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X4 QB SAE VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X5 Q QB a_15_458# VSS sky130_fd_pr__nfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X6 a_15_128# SAE VSS VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X7 a_273_458# INN a_15_128# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X8 Q QB VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X9 QB Q a_273_458# VSS sky130_fd_pr__nfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+.ends
+

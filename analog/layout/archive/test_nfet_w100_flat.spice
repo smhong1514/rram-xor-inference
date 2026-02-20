@@ -1,0 +1,6 @@
+* NGSPICE file created from test_nfet_w100_flat.ext - technology: sky130B
+
+.subckt test_nfet_w100_flat
+X0 dev_nfet_w100_0.D dev_nfet_w100_0.G dev_nfet_w100_0.S VSUBS sky130_fd_pr__nfet_01v8 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.15
+.ends
+

@@ -1,0 +1,94 @@
+* BL Write Driver: Schematic vs Layout Comparison
+* Tri-state buffer: EN=1 → BL=DATA, EN=0 → Hi-Z
+
+.lib "$PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice" tt
+
+** ============================================================
+** Schematic Netlist (from xschem)
+** ============================================================
+.subckt blwd_sch EN DATA BL VDD VSS
+XMP0 EN_B EN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1
+XMN0 EN_B EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1
+XMP3 DATA_B DATA VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1
+XMN3 DATA_B DATA VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1
+XMP1 NET_P EN_B VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1
+XMP2 BL DATA_B NET_P VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1
+XMN2 BL DATA_B NET_N VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1
+XMN1 NET_N EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1
+.ends
+
+** ============================================================
+** Layout-Extracted Netlist (from Magic)
+** ============================================================
+.subckt blwd_lay EN DATA BL VDD VSS
+X0 a_186_658# a_57_128# VDD VDD sky130_fd_pr__pfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X1 BL a_291_609# a_186_658# VDD sky130_fd_pr__pfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X2 a_57_128# EN VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X3 a_291_609# DATA VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X4 a_57_128# EN VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X5 a_186_128# EN VSS VSS sky130_fd_pr__nfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X6 BL a_291_609# a_186_128# VSS sky130_fd_pr__nfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X7 a_291_609# DATA VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+.ends
+
+** ============================================================
+** Testbench
+** ============================================================
+VDD vdd 0 1.8
+VSS vss 0 0
+
+* EN: enable at 20ns, disable at 100ns, re-enable at 140ns
+VEN en 0 PWL(0 0 19n 0 20n 1.8 99n 1.8 100n 0 139n 0 140n 1.8 199n 1.8 200n 0)
+
+* DATA: 1 at 20ns, switch to 0 at 60ns, back to 1 at 140ns
+VDATA data 0 PWL(0 0 19n 0 20n 1.8 59n 1.8 60n 0 139n 0 140n 1.8)
+
+* Schematic instance
+X_sch en data bl_sch vdd vss blwd_sch
+C_sch bl_sch 0 100f
+R_sch bl_sch 0 100k
+
+* Layout instance
+X_lay en data bl_lay vdd vss blwd_lay
+C_lay bl_lay 0 100f
+R_lay bl_lay 0 100k
+
+.tran 0.05n 220n
+
+.control
+run
+
+wrdata $PROJECT_ROOT/analog/sim/postlayout/blwd_compare.csv v(en) v(data) v(bl_sch) v(bl_lay)
+
+echo ""
+echo "===== BL Write Driver: Schematic vs Layout ====="
+echo ""
+
+echo "--- Phase 1: EN=1, DATA=1 (t=40ns) → BL=VDD ---"
+meas tran sch_bl_high FIND v(bl_sch) AT=40n
+meas tran lay_bl_high FIND v(bl_lay) AT=40n
+
+echo "--- Phase 2: EN=1, DATA=0 (t=80ns) → BL=0V ---"
+meas tran sch_bl_low FIND v(bl_sch) AT=80n
+meas tran lay_bl_low FIND v(bl_lay) AT=80n
+
+echo "--- Phase 3: EN=0 (t=120ns) → BL=Hi-Z ---"
+meas tran sch_bl_hiz FIND v(bl_sch) AT=120n
+meas tran lay_bl_hiz FIND v(bl_lay) AT=120n
+
+echo "--- Phase 4: EN=1, DATA=1 (t=160ns) → BL=VDD ---"
+meas tran sch_bl_re FIND v(bl_sch) AT=160n
+meas tran lay_bl_re FIND v(bl_lay) AT=160n
+
+echo "--- Rise Time ---"
+meas tran t_sch_rise TRIG v(bl_sch) VAL=0.18 RISE=1 TARG v(bl_sch) VAL=1.62 RISE=1
+meas tran t_lay_rise TRIG v(bl_lay) VAL=0.18 RISE=1 TARG v(bl_lay) VAL=1.62 RISE=1
+
+echo "--- Fall Time ---"
+meas tran t_sch_fall TRIG v(bl_sch) VAL=1.62 FALL=1 TARG v(bl_sch) VAL=0.18 FALL=1
+meas tran t_lay_fall TRIG v(bl_lay) VAL=1.62 FALL=1 TARG v(bl_lay) VAL=0.18 FALL=1
+
+quit
+.endc
+
+.end

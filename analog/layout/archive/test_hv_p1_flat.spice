@@ -1,0 +1,6 @@
+* NGSPICE file created from test_hv_p1_flat.ext - technology: sky130B
+
+.subckt test_hv_p1_flat
+X0 dev_hv_pfet_w100_0.D dev_hv_pfet_w100_0.G dev_hv_pfet_w100_0.S w_0_0# sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+.ends
+

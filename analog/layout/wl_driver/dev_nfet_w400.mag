@@ -1,0 +1,77 @@
+magic
+tech sky130B
+magscale 1 2
+timestamp 1770820250
+<< checkpaint >>
+rect -1293 1664 1293 1748
+rect -1321 1660 1321 1664
+rect -1333 -1660 1333 1660
+rect -1321 -1664 1321 -1660
+rect -1293 -1748 1293 -1664
+<< nmos >>
+rect -15 -400 15 400
+<< ndiff >>
+rect -73 388 -15 400
+rect -73 -388 -61 388
+rect -27 -388 -15 388
+rect -73 -400 -15 -388
+rect 15 388 73 400
+rect 15 -388 27 388
+rect 61 -388 73 388
+rect 15 -400 73 -388
+<< ndiffc >>
+rect -61 -388 -27 388
+rect 27 -388 61 388
+<< poly >>
+rect -33 472 33 488
+rect -33 438 -17 472
+rect 17 438 33 472
+rect -33 422 33 438
+rect -15 400 15 422
+rect -15 -422 15 -400
+rect -33 -438 33 -422
+rect -33 -472 -17 -438
+rect 17 -472 33 -438
+rect -33 -488 33 -472
+<< polycont >>
+rect -17 438 17 472
+rect -17 -472 17 -438
+<< locali >>
+rect -33 438 -17 472
+rect 17 438 33 472
+rect -61 388 -27 404
+rect -61 -404 -27 -388
+rect 27 388 61 404
+rect 27 -404 61 -388
+rect -33 -472 -17 -438
+rect 17 -472 33 -438
+<< viali >>
+rect -17 438 17 472
+rect -61 -388 -27 388
+rect 27 -388 61 388
+rect -17 -472 17 -438
+<< metal1 >>
+rect -29 472 29 478
+rect -29 438 -17 472
+rect 17 438 29 472
+rect -29 432 29 438
+rect -67 388 -21 400
+rect -67 -388 -61 388
+rect -27 -388 -21 388
+rect -67 -400 -21 -388
+rect 21 388 67 400
+rect 21 -388 27 388
+rect 61 -388 67 388
+rect 21 -400 67 -388
+rect -29 -438 29 -432
+rect -29 -472 -17 -438
+rect 17 -472 29 -438
+rect -29 -478 29 -472
+<< labels >>
+flabel metal1 s -29 -478 29 -472 0 FreeSans 16 0 0 0 G
+port 0 nsew
+flabel metal1 s -67 -400 -21 400 0 FreeSans 16 0 0 0 S
+port 1 nsew
+flabel metal1 s 21 -400 67 400 0 FreeSans 16 0 0 0 D
+port 2 nsew
+<< end >>

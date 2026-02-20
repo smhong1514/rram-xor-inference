@@ -1,0 +1,79 @@
+* BL Write Driver Testbench
+* Tri-state buffer: EN=1 → BL=DATA, EN=0 → Hi-Z
+* 8 transistors (2 inverters + series PMOS/NMOS output)
+
+.lib "$PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice" tt
+
+** BL Write Driver Subcircuit **
+** Pins: EN DATA BL VDD VSS
+.subckt bl_write_driver EN DATA BL VDD VSS
+* EN inverter
+XMP0 EN_B EN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 mult=1
+XMN0 EN_B EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 mult=1
+* DATA inverter
+XMP3 DATA_B DATA VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 mult=1
+XMN3 DATA_B DATA VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 mult=1
+* Output: series PMOS (VDD → NET_P → BL)
+XMP1 NET_P EN_B VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1 mult=1
+XMP2 BL DATA_B NET_P VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1 mult=1
+* Output: series NMOS (BL → NET_N → VSS)
+XMN2 BL DATA_B NET_N VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1 mult=1
+XMN1 NET_N EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1 mult=1
+.ends bl_write_driver
+
+** Testbench **
+
+VDD vdd 0 1.8
+VSS vss 0 0
+
+* EN: enable at 20ns, disable at 100ns, re-enable at 140ns
+VEN en 0 PWL(0 0 19n 0 20n 1.8 99n 1.8 100n 0 139n 0 140n 1.8 199n 1.8 200n 0)
+
+* DATA: 1 at 20ns (write VDD to BL), switch to 0 at 60ns (write GND to BL),
+*       back to 1 at 140ns
+VDATA data 0 PWL(0 0 19n 0 20n 1.8 59n 1.8 60n 0 139n 0 140n 1.8)
+
+* DUT
+X1 en data bl vdd vss bl_write_driver
+
+* BL load: 100fF parasitic + RRAM-like load (100k HRS)
+C_bl bl 0 100f
+R_bl bl 0 100k
+
+.tran 0.05n 220n
+
+.control
+run
+
+echo "============================================"
+echo "BL Write Driver Simulation Results"
+echo "============================================"
+
+* Phase 1: EN=1, DATA=1 → BL should be VDD (1.8V)
+meas tran bl_write1 FIND v(bl) AT=40n
+echo "Phase 1 (EN=1, DATA=1): BL should = 1.8V"
+
+* Phase 2: EN=1, DATA=0 → BL should be GND (0V)
+meas tran bl_write0 FIND v(bl) AT=80n
+echo "Phase 2 (EN=1, DATA=0): BL should = 0V"
+
+* Phase 3: EN=0 → BL should be floating (decays via R_bl)
+meas tran bl_hiz FIND v(bl) AT=120n
+echo "Phase 3 (EN=0): BL should be Hi-Z (decaying)"
+
+* Phase 4: EN=1, DATA=1 → BL back to VDD
+meas tran bl_rewrite FIND v(bl) AT=160n
+echo "Phase 4 (EN=1, DATA=1): BL should = 1.8V"
+
+* Rise/fall time
+meas tran t_rise TRIG v(bl) VAL=0.18 RISE=1 TARG v(bl) VAL=1.62 RISE=1
+meas tran t_fall TRIG v(bl) VAL=1.62 FALL=1 TARG v(bl) VAL=0.18 FALL=1
+
+echo "============================================"
+
+wrdata $PROJECT_ROOT/analog/sim/bl_wd_result.csv v(en) v(data) v(bl)
+
+quit
+.endc
+
+.end

@@ -1,0 +1,20 @@
+magic
+tech sky130B
+magscale 1 2
+timestamp 1770875678
+<< checkpaint >>
+rect -969 1261 1769 1948
+rect -1260 -1148 1769 1261
+rect -1260 -1260 1261 -1148
+use dev_nfet_w200  dev_nfet_w200_0
+timestamp 1770865356
+transform 1 0 400 0 1 400
+box -109 -288 109 288
+<< labels >>
+flabel space 371 164 429 176 1 FreeSans 2 0 0 0 G_TEST
+port 0 n
+flabel space 333 200 379 600 1 FreeSans 2 0 0 0 S_TEST
+port 1 n
+flabel space 421 200 467 600 1 FreeSans 2 0 0 0 D_TEST
+port 2 n
+<< end >>

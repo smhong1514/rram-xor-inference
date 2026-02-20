@@ -1,0 +1,35 @@
+## OpenLane build output
+runs/
+
+## Compiled binaries (architecture-specific, regenerate with vlnggen)
+*.so
+*.o
+*.a
+*.d
+*_obj_dir/
+
+## Python cache
+__pycache__/
+
+## Magic extraction intermediates
+*.ext
+
+## Simulation data (large, regeneratable)
+*.raw
+*.csv
+*.log
+*.vcd
+
+## Compiled simulation binaries
+gl_xor_sim
+
+## ngspice temp
+.spiceinit
+
+## OS/Editor
+.DS_Store
+*.swp
+*~
+
+## Environment overrides (user-specific)
+env.local.sh

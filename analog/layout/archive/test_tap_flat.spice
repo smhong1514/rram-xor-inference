@@ -1,0 +1,7 @@
+* NGSPICE file created from test_tap_flat.ext - technology: sky130B
+
+
+* Top level circuit test_tap_flat
+
+.end
+

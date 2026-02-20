@@ -1,0 +1,5 @@
+* Compile Verilog to shared library using vlnggen
+.control
+source $VLNGGEN controller_cosim.v controller.v
+.endc
+.end

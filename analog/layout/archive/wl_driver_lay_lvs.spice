@@ -1,0 +1,13 @@
+* NGSPICE file created from wl_driver_flat.ext - technology: sky130B
+
+.subckt wl_driver_flat IN OUT VDD VWL VSS
+X0 dev_hv_nfet_w200_1.G IN VDD VDD sky130_fd_pr__pfet_01v8 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.15
+X1 OUT dev_hv_nfet_w200_2.G VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.5
+X2 dev_hv_nfet_w200_1.G IN VSS VSS sky130_fd_pr__nfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+X3 dev_hv_nfet_w200_1.D dev_hv_nfet_w200_2.G VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+X4 dev_hv_nfet_w200_2.G IN VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X5 dev_hv_nfet_w200_1.D dev_hv_nfet_w200_1.G VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X6 dev_hv_nfet_w200_2.G dev_hv_nfet_w200_1.D VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+X7 OUT dev_hv_nfet_w200_2.G VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+.ends
+

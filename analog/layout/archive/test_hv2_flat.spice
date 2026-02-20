@@ -1,0 +1,8 @@
+* NGSPICE file created from test_hv2_flat.ext - technology: sky130B
+
+.subckt test_hv2_flat
+X0 a_36_188# a_36_188# a_36_188# w_0_88# sky130_fd_pr__pfet_01v8 ad=0.41025 pd=5.28 as=0.2405 ps=6.32 w=0.025 l=0.15
+X1 a_36_188# a_36_188# a_36_188# w_0_88# sky130_fd_pr__pfet_g5v0d10v5 ad=0.41025 pd=5.28 as=0.58 ps=5.16 w=1 l=0.5
+X2 a_36_188# a_36_188# a_36_188# w_0_88# sky130_fd_pr__pfet_01v8 ad=0.41025 pd=5.28 as=0 ps=0 w=0.025 l=0.15
+.ends
+

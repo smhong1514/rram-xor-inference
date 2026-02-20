@@ -1,0 +1,136 @@
+library (wl_driver) {
+  comment : "Characterized with ngspice, Sky130B tt corner, 25C";
+  comment : "Level shifter 1.8V->VWL(3.3V), thresholds at VDD(1.8V) domain";
+  technology (cmos);
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1v";
+  current_unit : "1uA";
+  pulling_resistance_unit : "1kohm";
+  capacitive_load_unit (1, pF);
+
+  nom_process : 1.0;
+  nom_temperature : 25.0;
+  nom_voltage : 1.80;
+
+  input_threshold_pct_rise : 50;
+  input_threshold_pct_fall : 50;
+  output_threshold_pct_rise : 50;
+  output_threshold_pct_fall : 50;
+  slew_lower_threshold_pct_rise : 20;
+  slew_upper_threshold_pct_rise : 80;
+  slew_lower_threshold_pct_fall : 20;
+  slew_upper_threshold_pct_fall : 80;
+
+  default_cell_leakage_power : 0;
+  default_fanout_load : 1;
+  default_output_pin_cap : 0.0;
+  default_input_pin_cap : 0.0;
+  default_inout_pin_cap : 0.0;
+
+  operating_conditions (typical) {
+    process : 1.0;
+    temperature : 25.0;
+    voltage : 1.80;
+  }
+  default_operating_conditions : typical;
+
+  lu_table_template (delay_template_7x7) {
+    variable_1 : input_net_transition;
+    variable_2 : total_output_net_capacitance;
+    index_1 ("0.0100, 0.0230, 0.0540, 0.1280, 0.3000, 0.7000, 1.6500");
+    index_2 ("0.00050, 0.00146, 0.00429, 0.01257, 0.03681, 0.10783, 0.31587");
+  }
+
+  cell (wl_driver) {
+    is_macro_cell : true;
+    dont_touch : true;
+    dont_use : true;
+    area : 156.735;
+
+    pin (VDD) {
+      direction : inout;
+    }
+    pg_pin (VDD) {
+      voltage_name : VDD;
+      pg_type : primary_power;
+    }
+
+    pin (VWL) {
+      direction : inout;
+    }
+    pg_pin (VWL) {
+      voltage_name : VWL;
+      pg_type : primary_power;
+    }
+
+    pin (VSS) {
+      direction : inout;
+    }
+    pg_pin (VSS) {
+      voltage_name : VSS;
+      pg_type : primary_ground;
+    }
+
+    pin (IN) {
+      direction : input;
+      capacitance : 0.045586;
+    }
+
+    pin (OUT) {
+      direction : output;
+      max_capacitance : 0.5;
+      function : "IN";
+
+      timing () {
+        related_pin : "IN";
+        timing_sense : positive_unate;
+
+        cell_rise (delay_template_7x7) {
+          values ( \
+            "0.25753, 0.26231, 0.27350, 0.29657, 0.34223, 0.44242, 0.72955", \
+            "0.26317, 0.26795, 0.27913, 0.30220, 0.34786, 0.44805, 0.73518", \
+            "0.27736, 0.28212, 0.29330, 0.31633, 0.36202, 0.46220, 0.74933", \
+            "0.31582, 0.32061, 0.33179, 0.35488, 0.40058, 0.50074, 0.78788", \
+            "0.41940, 0.42418, 0.43539, 0.45850, 0.50425, 0.60431, 0.89143", \
+            "0.68016, 0.68489, 0.69607, 0.71907, 0.76468, 0.86435, 1.15126", \
+            "1.29397, 1.29860, 1.30941, 1.33182, 1.37646, 1.47476, 1.76023" \
+          );
+        }
+        rise_transition (delay_template_7x7) {
+          values ( \
+            "0.04412, 0.04724, 0.05410, 0.06700, 0.09527, 0.19674, 0.55169", \
+            "0.04412, 0.04723, 0.05410, 0.06701, 0.09526, 0.19674, 0.55169", \
+            "0.04411, 0.04731, 0.05408, 0.06701, 0.09526, 0.19674, 0.55169", \
+            "0.04412, 0.04724, 0.05410, 0.06700, 0.09530, 0.19675, 0.55170", \
+            "0.04404, 0.04719, 0.05403, 0.06694, 0.09537, 0.19681, 0.55170", \
+            "0.04237, 0.04552, 0.05234, 0.06554, 0.09472, 0.19677, 0.55170", \
+            "0.04010, 0.04332, 0.05004, 0.06361, 0.09413, 0.19688, 0.55170" \
+          );
+        }
+        cell_fall (delay_template_7x7) {
+          values ( \
+            "0.37246, 0.38023, 0.39966, 0.44455, 0.54699, 0.81207, 1.57413", \
+            "0.37503, 0.38282, 0.40219, 0.44709, 0.54957, 0.81468, 1.57675", \
+            "0.38365, 0.39137, 0.41070, 0.45549, 0.55790, 0.82301, 1.58511", \
+            "0.40719, 0.41494, 0.43418, 0.47890, 0.58121, 0.84624, 1.60834", \
+            "0.45209, 0.45989, 0.47916, 0.52383, 0.62604, 0.89099, 1.65310", \
+            "0.52105, 0.52875, 0.54806, 0.59282, 0.69507, 0.95998, 1.72212", \
+            "0.64125, 0.64904, 0.66828, 0.71296, 0.81527, 1.08055, 1.84319" \
+          );
+        }
+        fall_transition (delay_template_7x7) {
+          values ( \
+            "0.02347, 0.02493, 0.03003, 0.04664, 0.09388, 0.24271, 0.68753", \
+            "0.02365, 0.02480, 0.03014, 0.04671, 0.09392, 0.24269, 0.68754", \
+            "0.02342, 0.02497, 0.02997, 0.04668, 0.09389, 0.24271, 0.68754", \
+            "0.02364, 0.02476, 0.03012, 0.04668, 0.09391, 0.24270, 0.68754", \
+            "0.02360, 0.02495, 0.03011, 0.04672, 0.09392, 0.24269, 0.68754", \
+            "0.02367, 0.02504, 0.03017, 0.04686, 0.09397, 0.24270, 0.68754", \
+            "0.02376, 0.02497, 0.03024, 0.04682, 0.09407, 0.24296, 0.68755" \
+          );
+        }
+      }
+    }
+  }
+}

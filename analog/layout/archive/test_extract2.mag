@@ -1,0 +1,16 @@
+magic
+tech sky130B
+magscale 1 2
+timestamp 1770868023
+<< checkpaint >>
+rect -1078 1460 1660 1660
+rect -1078 1261 1690 1460
+rect -1260 -1260 1690 1261
+rect -890 -1460 1690 -1260
+<< metal1 >>
+rect 370 -200 430 200
+use dev_pfet_w050  dev_pfet_w050_0
+timestamp 1770820250
+transform 1 0 291 0 1 250
+box -109 -150 109 150
+<< end >>

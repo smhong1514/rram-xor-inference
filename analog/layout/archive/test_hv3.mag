@@ -1,0 +1,10 @@
+magic
+tech sky130B
+timestamp 1770876360
+<< checkpaint >>
+rect -630 -630 774 1130
+use dev_hv_pfet_w400  dev_hv_pfet_w400_0
+timestamp 1770865356
+transform 1 0 72 0 1 250
+box -72 -250 72 250
+<< end >>

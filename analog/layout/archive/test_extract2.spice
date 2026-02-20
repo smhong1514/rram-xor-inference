@@ -1,0 +1,12 @@
+* NGSPICE file created from test_extract2.ext - technology: sky130B
+
+.subckt dev_pfet_w050 G S D
+X0 D G S w_n109_n150# sky130_fd_pr__pfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+.ends
+
+
+* Top level circuit test_extract2
+
+Xdev_pfet_w050_0 dev_pfet_w050_0/G dev_pfet_w050_0/S dev_pfet_w050_0/D dev_pfet_w050
+.end
+

@@ -1,0 +1,42 @@
+* Async reset d_cosim test
+.param vdd=1.8
+
+* Digital clock 100MHz
+A_clk 0 clk_d clkmodel
+.model clkmodel d_osc (cntl_array=[-1 1] freq_array=[100Meg 100Meg])
+
+* Reset: active-low, deassert at 25ns
+V_rst rst_a 0 PWL(0 0 24n 0 25n 1.8)
+
+* Start signal: high after 45ns
+V_start start_a 0 PWL(0 0 44n 0 45n 1.8)
+
+.model adc1 adc_bridge (in_low=0.6 in_high=1.2 rise_delay=0.1n fall_delay=0.1n)
+A_adc [rst_a start_a] [rst_d start_d] adc1
+
+* d_cosim: inputs=[clk, rst_n, start], outputs=[count[3:0], active]
+A_test [clk_d rst_d start_d]
++      [cnt3_d cnt2_d cnt1_d cnt0_d active_d]
++      null testmod
+
+.model testmod d_cosim (simulation="./test_asyncrst.so" delay=1n)
+
+* DAC bridge
+.model dac1 dac_bridge (out_low=0 out_high=1.8 out_undef=0.9 t_rise=0.5n t_fall=0.5n)
+A_dac [cnt3_d cnt2_d cnt1_d cnt0_d active_d]
++     [cnt3_a cnt2_a cnt1_a cnt0_a active_a]
++     dac1
+
+.control
+save all
+tran 0.5n 100n
+
+echo "=== async reset test ==="
+meas tran act_30 FIND v(active_a) AT=30n
+meas tran act_50 FIND v(active_a) AT=50n
+meas tran act_60 FIND v(active_a) AT=60n
+meas tran cnt0_60 FIND v(cnt0_a) AT=60n
+meas tran cnt1_60 FIND v(cnt1_a) AT=60n
+echo "=== end ==="
+.endc
+.end

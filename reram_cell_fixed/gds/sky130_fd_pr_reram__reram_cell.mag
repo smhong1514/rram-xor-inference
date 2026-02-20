@@ -1,0 +1,22 @@
+magic
+tech sky130B
+magscale 1 2
+timestamp 1738828800
+<< metal1 >>
+rect -39 -39 39 39
+<< via1 >>
+rect -15 -15 15 15
+<< metal2 >>
+rect -39 -39 39 39
+<< reram >>
+rect -32 -32 32 32
+<< labels >>
+flabel metal2 s -39 -39 39 39 0 FreeSans 160 0 0 0 TE
+port 0 nsew
+flabel metal1 s -39 -39 39 39 0 FreeSans 160 0 0 0 BE
+port 1 nsew
+<< properties >>
+string GDS_FILE ./sky130_fd_pr_reram__reram_cell_new.gds
+string GDS_START 0
+string GDS_END 592
+<< end >>

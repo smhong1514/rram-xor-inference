@@ -1,0 +1,33 @@
+--- a/src/xspice/verilog/verilator_shim.cpp
++++ b/src/xspice/verilog/verilator_shim.cpp
+@@ -50,7 +50,7 @@
+     if (val)                              \
+       topp->name |= (1 << (msb - index)); \
+     else                                  \
+-      topp->name &= (1 << (msb - index)); \
++      topp->name &= ~(1 << (msb - index)); \
+     return;                               \
+   }
+
+@@ -80,9 +80,9 @@
+     previous_output[index + offset] = val; \
+     return;                                \
+   } else {                                 \
+-    if (val) 				   \
+-      topp->name | (1 << (msb - index));   \
++    if (val)                               \
++      topp->name |= (1 << (msb - index)); \
+     else                                   \
+-      topp->name &= (1 << (msb - index));  \
++      topp->name &= ~(1 << (msb - index)); \
+     previous_output[index + offset] = val; \
+     return;                                \
+@@ -132,7 +132,7 @@
+     // Setup context, and defaults
+
+     Verilated::debug(0);
+-    const std::unique_ptr<VerilatedContext> contextp{new VerilatedContext};
++    static const std::unique_ptr<VerilatedContext> contextp{new VerilatedContext};
+
+     // Construct the Verilated model, from Vtop.h generated from Verilating
+

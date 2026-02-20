@@ -1,0 +1,469 @@
+* ============================================================
+* RRAM Full Mixed-Signal Co-Simulation v2
+* d_cosim Verilog FSM Controller + Analog Blocks (Closed Loop)
+*
+* Changes from v1:
+*   - WRITE_PROG cycles: 8 → 500 (80ns → 5us)
+*   - VWRITE=2.5V for BL Write Drivers (higher BL voltage for SET)
+*   - Phase 3 verify READ shifted to 5300ns (after WRITE completes ~5170ns)
+*   - Total simulation: 6500ns (was 400ns)
+*
+* Signal chain:
+*   Commands (PWL) → ADC → d_cosim controller
+*   Controller outputs → DAC → WL Driver → RRAM 4x4 array
+*   RRAM BLs → Sense Amplifier → ADC → bl_sense (feedback)
+*
+* Test scenario:
+*   Phase 1 - READ Row=1, Col=2 (t=45ns)
+*     Cell(1,2) = HRS (Tfilament=3.5e-9) → expect resp_data=0
+*   Phase 2 - WRITE Row=1, Col=2, Data=1 (t=145ns)
+*     SET cell(1,2) → HRS to LRS (500 cycles = 5us programming pulse)
+*   Phase 3 - Verify READ Row=1, Col=2 (t=5300ns)
+*     Cell(1,2) should now be LRS → expect resp_data=1
+* ============================================================
+.title RRAM_COSIM_FULL_V2
+
+** --------------------------------------------------------
+** Sky130 PDK device models
+** --------------------------------------------------------
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+
+** --------------------------------------------------------
+** RRAM cell subcircuit (OSDI compact model)
+** --------------------------------------------------------
+.subckt sky130_fd_pr_reram__reram_cell TE BE Tfilament_0=3.3e-9
+.model rram_local sky130_fd_pr_reram__reram_cell
++ Tfilament_0 = Tfilament_0
++ area_ox = 0.1024e-12
++ Tox = 5.0e-9
++ Tfilament_max = 4.9e-9
++ Tfilament_min = 3.3e-9
++ Eact_generation = 1.501
++ Eact_recombination = 1.500
++ I_k1 = 6.140e-5
++ Tfilament_ref = 4.7249e-9
++ V_ref = 0.430
++ velocity_k1 = 150
++ gamma_k0 = 16.5
++ gamma_k1 = -1.25
++ Temperature_0 = 300
++ C_thermal = 3.1825e-16
++ tau_thermal = 0.23e-9
++ t_step = 1.0e-9
+N1 TE BE rram_local
+.ends sky130_fd_pr_reram__reram_cell
+
+** --------------------------------------------------------
+** WL Driver subcircuit (8 transistors)
+** Pins: IN OUT VDD VWL VSS
+** --------------------------------------------------------
+.subckt wl_driver IN OUT VDD VWL VSS
+XMP0 INB IN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN0 INB IN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP1 Q QB VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN1 Q IN VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP2 QB Q VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN2 QB INB VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP3 OUT Q VWL VWL sky130_fd_pr__pfet_g5v0d10v5 L=0.5 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMN3 OUT Q VSS VSS sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+.ends wl_driver
+
+** --------------------------------------------------------
+** Sense Amplifier subcircuit (StrongARM latch, 10 transistors)
+** Pins: SAE INP INN Q QB VDD VSS
+** --------------------------------------------------------
+.subckt sense_amp SAE INP INN Q QB VDD VSS
+XMP3 Q SAE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP4 QB SAE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP5 QB SAE Q VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMP1 Q QB VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMP2 QB Q VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN1 Q QB FN1 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN2 QB Q FN2 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1 ad=0.29 as=0.29
++ pd=2.58 ps=2.58 nrd=0.29 nrs=0.29 sa=0 sb=0 sd=0 mult=1
+XMN3 FN1 INP TAIL VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMN4 FN2 INN TAIL VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMN0 TAIL SAE VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+.ends sense_amp
+
+** --------------------------------------------------------
+** RRAM 4x4 Array
+** Row 0: [LRS, HRS, LRS, HRS]
+** Row 1: [HRS, LRS, HRS, LRS] ← test target
+** Row 2: [LRS, LRS, HRS, HRS]
+** Row 3: [HRS, HRS, LRS, LRS]
+** --------------------------------------------------------
+.subckt rram_4x4_fixed BL0 BL1 BL2 BL3 WL0 WL1 WL2 WL3 SL0 SL1 SL2 SL3 GND
+* Row 0 (WL0, SL0)
+XR00 BL0 n00 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM00 n00 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR01 BL1 n01 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM01 n01 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR02 BL2 n02 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM02 n02 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR03 BL3 n03 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM03 n03 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+* Row 1 (WL1, SL1) ← test target
+XR10 BL0 n10 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM10 n10 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR11 BL1 n11 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM11 n11 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR12 BL2 n12 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM12 n12 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR13 BL3 n13 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM13 n13 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+* Row 2 (WL2, SL2)
+XR20 BL0 n20 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM20 n20 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR21 BL1 n21 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM21 n21 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR22 BL2 n22 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM22 n22 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR23 BL3 n23 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM23 n23 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+* Row 3 (WL3, SL3)
+XR30 BL0 n30 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM30 n30 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR31 BL1 n31 sky130_fd_pr_reram__reram_cell Tfilament_0=3.5e-9
+XM31 n31 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR32 BL2 n32 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM32 n32 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+XR33 BL3 n33 sky130_fd_pr_reram__reram_cell Tfilament_0=4.5e-9
+XM33 n33 WL3 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+.ends rram_4x4_fixed
+
+** --------------------------------------------------------
+** BL Write Driver subcircuit (Tri-state buffer, 8 transistors)
+** Pins: EN DATA BL VDD VSS
+** EN=1: BL=DATA (full VDD swing), EN=0: BL=Hi-Z
+** --------------------------------------------------------
+.subckt bl_write_driver EN DATA BL VDD VSS
+* EN inverter
+XMP0 EN_B EN VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMN0 EN_B EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+* DATA inverter
+XMP3 DATA_B DATA VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+XMN3 DATA_B DATA VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=0.5 nf=1 ad=0.145 as=0.145
++ pd=1.58 ps=1.58 nrd=0.58 nrs=0.58 sa=0 sb=0 sd=0 mult=1
+* Output: series PMOS (VDD → NET_P → BL)
+XMP1 NET_P EN_B VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMP2 BL DATA_B NET_P VDD sky130_fd_pr__pfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+* Output: series NMOS (BL → NET_N → VSS)
+XMN2 BL DATA_B NET_N VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+XMN1 NET_N EN VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=4 nf=1 ad=1.16 as=1.16
++ pd=8.58 ps=8.58 nrd=0.0725 nrs=0.0725 sa=0 sb=0 sd=0 mult=1
+.ends bl_write_driver
+
+** ========================================================
+** POWER SUPPLIES
+** ========================================================
+VDD    vdd     0 DC 1.8
+VWLP   vwl_pwr 0 DC 3.3
+VREF   vref    0 DC 0.9
+VWRITE vwrite  0 DC 3.0
+
+** ========================================================
+** DIGITAL CLOCK (100MHz via d_osc)
+** ========================================================
+A_clk 0 clk_d clkmodel
+.model clkmodel d_osc (cntl_array=[-1 1] freq_array=[100Meg 100Meg])
+
+** ========================================================
+** COMMAND STIMULUS (analog PWL, literal values)
+** v2: Phase 3 verify READ at 5300ns (after 500-cycle WRITE completes ~5170ns)
+** ========================================================
+
+* Reset: active-low, deassert at 25ns
+V_rst rst_a 0 PWL(0 0 24n 0 25n 1.8)
+
+* cmd_valid: pulses at 45ns (read), 145ns (write), 5300ns (verify read)
+V_cv cv_a 0 PWL(0 0 44n 0 45n 1.8 80n 1.8 81n 0
++                  144n 0 145n 1.8 180n 1.8 181n 0
++                  5299n 0 5300n 1.8 5335n 1.8 5336n 0)
+
+* cmd_write: 0 for reads, 1 for write at 145ns
+V_cw cw_a 0 PWL(0 0 144n 0 145n 1.8 181n 1.8 182n 0)
+
+* cmd_row[1:0] = 01 (row 1): bit1(MSB)=0, bit0(LSB)=1
+V_cr1 cr1_a 0 DC 0
+V_cr0 cr0_a 0 DC 1.8
+
+* cmd_col[1:0] = 10 (col 2): bit1(MSB)=1, bit0(LSB)=0
+V_cc1 cc1_a 0 DC 1.8
+V_cc0 cc0_a 0 DC 0
+
+* cmd_data = 1 (for write at 145ns)
+V_cd cd_a 0 PWL(0 0 144n 0 145n 1.8 181n 1.8 182n 0)
+
+** ========================================================
+** ADC BRIDGES: Analog command inputs → Digital
+** ========================================================
+.model adc1 adc_bridge (in_low=0.6 in_high=1.2 rise_delay=0.1n fall_delay=0.1n)
+
+A_adc_cmd [rst_a cv_a cw_a cr1_a cr0_a cc1_a cc0_a cd_a]
++         [rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d]
++         adc1
+
+** ADC BRIDGES: SA outputs → bl_sense (CLOSED LOOP FEEDBACK!)
+** sa_q0→bs0_d, sa_q1→bs1_d, sa_q2→bs2_d, sa_q3→bs3_d
+A_adc_sa [sa_q3 sa_q2 sa_q1 sa_q0]
++        [bs3_d bs2_d bs1_d bs0_d]
++        adc1
+
+** ========================================================
+** d_cosim CONTROLLER (Verilog FSM via Verilator)
+** v2: cycle_cnt 10-bit, WRITE_PROG=500 cycles, READ_SENSE SA delay (cnt>=3)
+** ========================================================
+* Inputs  (13 bits): clk, rst_n, cmd_valid, cmd_write,
+*                    cmd_row[1], cmd_row[0], cmd_col[1], cmd_col[0],
+*                    cmd_data, bl_sense[3], bl_sense[2], bl_sense[1], bl_sense[0]
+* Outputs (21 bits): cmd_ready, resp_valid, resp_data,
+*                    wl_sel[3:0], sl_sel[3:0], bl_en[3:0], bl_data[3:0],
+*                    write_en, read_en
+A_ctrl [clk_d rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d bs3_d bs2_d bs1_d bs0_d]
++      [cmd_ready_d resp_valid_d resp_data_d
++       wl3_d wl2_d wl1_d wl0_d
++       sl3_d sl2_d sl1_d sl0_d
++       bl_en3_d bl_en2_d bl_en1_d bl_en0_d
++       bl_data3_d bl_data2_d bl_data1_d bl_data0_d
++       write_en_d read_en_d]
++      null cosim_ctrl
+.model cosim_ctrl d_cosim (simulation="./controller.so" delay=1n)
+
+** ========================================================
+** DAC BRIDGES: Digital controller outputs → Analog
+** ========================================================
+.model dac1 dac_bridge (out_low=0 out_high=1.8 out_undef=0.9
++                       t_rise=0.5n t_fall=0.5n)
+
+* Control/status signals
+A_dac_ctrl [cmd_ready_d resp_valid_d resp_data_d write_en_d read_en_d]
++          [rdy_a rv_a rd_a wen_a ren_a]
++          dac1
+
+* WL select (one-hot decoded, drives WL drivers)
+A_dac_wl [wl3_d wl2_d wl1_d wl0_d]
++        [wl_in3 wl_in2 wl_in1 wl_in0]
++        dac1
+
+* SL select (one-hot decoded, drives SL switches)
+A_dac_sl [sl3_d sl2_d sl1_d sl0_d]
++        [sl_en3 sl_en2 sl_en1 sl_en0]
++        dac1
+
+* BL enable (one-hot, drives write pass gates)
+A_dac_blen [bl_en3_d bl_en2_d bl_en1_d bl_en0_d]
++          [bl_en_a3 bl_en_a2 bl_en_a1 bl_en_a0]
++          dac1
+
+* BL data (write data per column)
+A_dac_bldat [bl_data3_d bl_data2_d bl_data1_d bl_data0_d]
++           [bl_data_a3 bl_data_a2 bl_data_a1 bl_data_a0]
++           dac1
+
+** ========================================================
+** BL PRECHARGE CONTROL (OR of WL selects)
+** Precharge ON (gate=0) when no WL active
+** Precharge OFF (gate=1.8V) when any WL active
+** ========================================================
+A_or_wl [wl3_d wl2_d wl1_d wl0_d] prech_en_d d_or_model
+.model d_or_model d_or (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_dac_prech [prech_en_d] [prech_en_a] dac1
+
+** ========================================================
+** ANALOG SIGNAL CHAIN
+** ========================================================
+
+** WL Drivers (4x, level shift 1.8V → 3.3V)
+** Pins: IN OUT VDD VWL VSS
+x_wld0 wl_in0 wl0 vdd vwl_pwr 0 wl_driver
+x_wld1 wl_in1 wl1 vdd vwl_pwr 0 wl_driver
+x_wld2 wl_in2 wl2 vdd vwl_pwr 0 wl_driver
+x_wld3 wl_in3 wl3 vdd vwl_pwr 0 wl_driver
+
+** BL Precharge PMOS (gate=prech_en_a: OFF when any WL active)
+XMP_pre0 bl0 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP_pre1 bl1 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP_pre2 bl2 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+XMP_pre3 bl3 prech_en_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+
+** BL Parasitic Capacitance (100fF per BL)
+C_bl0 bl0 0 100f
+C_bl1 bl1 0 100f
+C_bl2 bl2 0 100f
+C_bl3 bl3 0 100f
+
+** SL Ground Switches (NFET: SL → GND when sl_en high)
+XMN_sl0 rram_sl0 sl_en0 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+XMN_sl1 rram_sl1 sl_en1 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+XMN_sl2 rram_sl2 sl_en2 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+XMN_sl3 rram_sl3 sl_en3 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1 ad=2.9 as=2.9
++ pd=20.58 ps=20.58 nrd=0.029 nrs=0.029 sa=0 sb=0 sd=0 mult=1
+
+** BL Write Drivers (Tri-state buffer: EN=bl_en, DATA=bl_data → BL)
+** Pins: EN DATA BL VDD VSS
+** v2: VDD=vwrite(2.5V) for higher SET voltage
+x_blw0 bl_en_a0 bl_data_a0 bl0 vwrite 0 bl_write_driver
+x_blw1 bl_en_a1 bl_data_a1 bl1 vwrite 0 bl_write_driver
+x_blw2 bl_en_a2 bl_data_a2 bl2 vwrite 0 bl_write_driver
+x_blw3 bl_en_a3 bl_data_a3 bl3 vwrite 0 bl_write_driver
+
+** RRAM 4x4 Array
+x_rram bl0 bl1 bl2 bl3 wl0 wl1 wl2 wl3
++      rram_sl0 rram_sl1 rram_sl2 rram_sl3 0 rram_4x4_fixed
+
+** Sense Amplifiers (4x, SAE = ren_a from controller read_en)
+** Pins: SAE INP INN Q QB VDD VSS
+x_sa0 ren_a bl0 vref sa_q0 sa_qb0 vdd 0 sense_amp
+x_sa1 ren_a bl1 vref sa_q1 sa_qb1 vdd 0 sense_amp
+x_sa2 ren_a bl2 vref sa_q2 sa_qb2 vdd 0 sense_amp
+x_sa3 ren_a bl3 vref sa_q3 sa_qb3 vdd 0 sense_amp
+
+** ========================================================
+** SIMULATION CONTROL
+** v2: Extended to 6500ns for 500-cycle WRITE + VWRITE=2.5V
+** ========================================================
+.control
+pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+save all
+tran 1n 6500n
+
+echo ""
+echo "=============================================="
+echo "RRAM Co-Sim v2: 500-cycle WRITE (5us), VWRITE=2.5V"
+echo "=============================================="
+echo ""
+
+* --- Phase 1: READ Row=1, Col=2 ---
+* SA delayed: read_en at cnt>=3 (~30ns after BL discharge start)
+echo "--- Phase 1: READ Row=1, Col=2 ---"
+echo "Expected: Cell(1,2)=HRS → resp_data=0"
+meas tran rdy_30 FIND v(rdy_a) AT=30n
+meas tran wl1_65 FIND v(wl1) AT=65n
+* BL settling before SA (read_en delayed by 20ns)
+meas tran bl2_85 FIND v(bl2) AT=85n
+meas tran ren_90 FIND v(ren_a) AT=90n
+meas tran ren_100 FIND v(ren_a) AT=100n
+meas tran bl2_100 FIND v(bl2) AT=100n
+meas tran saq2_105 FIND v(sa_q2) AT=105n
+* READ_DONE at ~125ns
+meas tran rv1_125 FIND v(rv_a) AT=125n
+meas tran rv1_130 FIND v(rv_a) AT=130n
+meas tran rd1_125 FIND v(rd_a) AT=125n
+meas tran rd1_130 FIND v(rd_a) AT=130n
+
+echo ""
+echo "--- Phase 2: WRITE Row=1, Col=2, Data=1 (500 cycles = 5us) ---"
+* Check signals during WRITE
+meas tran wen_500 FIND v(wen_a) AT=500n
+meas tran blen2_500 FIND v(bl_en_a2) AT=500n
+meas tran bl2_500 FIND v(bl2) AT=500n
+meas tran wl1_500 FIND v(wl1) AT=500n
+meas tran slen1_500 FIND v(sl_en1) AT=500n
+* RRAM internal voltages: V(TE)=V(bl2), V(BE)=V(x_rram.n12)
+meas tran be12_500 FIND v(x_rram.n12) AT=500n
+meas tran sl1_500 FIND v(rram_sl1) AT=500n
+* BL and RRAM node at intervals
+meas tran bl2_1000 FIND v(bl2) AT=1000n
+meas tran be12_1000 FIND v(x_rram.n12) AT=1000n
+meas tran bl2_3000 FIND v(bl2) AT=3000n
+meas tran be12_3000 FIND v(x_rram.n12) AT=3000n
+meas tran bl2_5000 FIND v(bl2) AT=5000n
+meas tran be12_5000 FIND v(x_rram.n12) AT=5000n
+* Check WRITE completion
+meas tran wen_5200 FIND v(wen_a) AT=5200n
+
+echo ""
+echo "--- RRAM node during WRITE→IDLE transition ---"
+* Check if RRAM reverts during transition
+meas tran be12_5150 FIND v(x_rram.n12) AT=5150n
+meas tran be12_5170 FIND v(x_rram.n12) AT=5170n
+meas tran bl2_5170 FIND v(bl2) AT=5170n
+meas tran be12_5180 FIND v(x_rram.n12) AT=5180n
+meas tran bl2_5180 FIND v(bl2) AT=5180n
+meas tran be12_5200 FIND v(x_rram.n12) AT=5200n
+meas tran bl2_5200 FIND v(bl2) AT=5200n
+meas tran be12_5250 FIND v(x_rram.n12) AT=5250n
+meas tran bl2_5250 FIND v(bl2) AT=5250n
+meas tran be12_5300 FIND v(x_rram.n12) AT=5300n
+meas tran bl2_5300 FIND v(bl2) AT=5300n
+
+echo ""
+echo "--- Phase 3: Verify READ Row=1, Col=2 ---"
+echo "Expected: Cell(1,2) now LRS after 5us write @ 3.0V → resp_data=1"
+* Detailed BL2 and BE trajectory during Phase 3 READ
+meas tran bl2_5320 FIND v(bl2) AT=5320n
+meas tran be12_5320 FIND v(x_rram.n12) AT=5320n
+meas tran bl2_5325 FIND v(bl2) AT=5325n
+meas tran be12_5325 FIND v(x_rram.n12) AT=5325n
+meas tran bl2_5330 FIND v(bl2) AT=5330n
+meas tran bl2_5335 FIND v(bl2) AT=5335n
+meas tran bl2_5340 FIND v(bl2) AT=5340n
+meas tran bl2_5345 FIND v(bl2) AT=5345n
+meas tran bl2_5350 FIND v(bl2) AT=5350n
+meas tran bl2_5355 FIND v(bl2) AT=5355n
+* SA and response
+meas tran ren_5360 FIND v(ren_a) AT=5360n
+meas tran saq2_5365 FIND v(sa_q2) AT=5365n
+meas tran rv_5390 FIND v(rv_a) AT=5390n
+meas tran rd_5390 FIND v(rd_a) AT=5390n
+
+echo ""
+echo "=============================================="
+
+* Save CSV for plotting
+wrdata rram_cosim_full_v2.csv
++ v(rdy_a) v(rv_a) v(rd_a) v(wen_a) v(ren_a)
++ v(wl_in0) v(wl_in1) v(wl0) v(wl1)
++ v(bl0) v(bl1) v(bl2) v(bl3)
++ v(sa_q0) v(sa_q1) v(sa_q2) v(sa_q3)
++ v(prech_en_a) v(sl_en1) v(bl_en_a2) v(bl_data_a2)
+
+.endc
+.end

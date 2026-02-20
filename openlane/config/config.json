@@ -1,0 +1,54 @@
+{
+    "DESIGN_NAME": "rram_ctrl_top",
+    "VERILOG_FILES": [
+        "dir::src/rram_blackbox.v",
+        "dir::src/controller.v",
+        "dir::src/row_decoder.v",
+        "dir::src/col_decoder.v",
+        "dir::src/rram_ctrl_top.v"
+    ],
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 50,
+
+    "FP_SIZING": "absolute",
+    "DIE_AREA": "0 0 160 160",
+    "FP_PDN_AUTO_ADJUST": false,
+
+    "PL_TARGET_DENSITY": 0.40,
+    "FP_CORE_UTIL": 30,
+
+    "EXTRA_LEFS": [
+        "dir::lef/rram_4x4_array.lef"
+    ],
+    "EXTRA_GDS_FILES": [
+        "dir::gds/rram_4x4_array.gds"
+    ],
+
+    "MACRO_PLACEMENT_CFG": "dir::config/macro_placement.cfg",
+
+    "VDD_NETS": "vccd1",
+    "GND_NETS": "vssd1",
+    "FP_PDN_ENABLE_MACROS_GRID": false,
+    "DIODE_INSERTION_STRATEGY": 4,
+
+    "RUN_CVC": false,
+    "RUN_LVS": true,
+    "LVS_INSERT_POWER_PINS": false,
+    "PRIMARY_GDSII_STREAMOUT_TOOL": "magic",
+    "RUN_KLAYOUT": false,
+
+    "DRT_OPT_ITERS": 64,
+    "GRT_ADJUSTMENT": 0.2,
+    "QUIT_ON_MAGIC_DRC": false,
+
+    "SYNTH_USE_PG_PINS_DEFINES": "USE_POWER_PINS",
+
+    "pdk::sky130*": {
+        "FP_PDN_VOFFSET": 5,
+        "FP_PDN_HOFFSET": 5,
+        "FP_PDN_VPITCH": 30,
+        "FP_PDN_HPITCH": 30,
+        "SYNTH_MAX_FANOUT": 6,
+        "CLOCK_PERIOD": 50
+    }
+}

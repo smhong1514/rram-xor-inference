@@ -1,0 +1,98 @@
+* Sense Amplifier: Schematic vs Layout Comparison
+* Same stimulus, two instances side-by-side
+
+.lib "$PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice" tt
+
+** ============================================================
+** Schematic Netlist (from xschem)
+** ============================================================
+.subckt sa_sch SAE INP INN Q QB VDD VSS
+XMP3 Q SAE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1
+XMP4 QB SAE VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1
+XMP5 QB SAE Q VDD sky130_fd_pr__pfet_01v8 L=0.15 W=0.5 nf=1
+XMP1 Q QB VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1
+XMP2 QB Q VDD VDD sky130_fd_pr__pfet_01v8 L=0.15 W=1 nf=1
+XMN1 Q QB FN1 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+XMN2 QB Q FN2 VSS sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+XMN3 FN1 INP TAIL VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1
+XMN4 FN2 INN TAIL VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1
+XMN0 TAIL SAE VSS VSS sky130_fd_pr__nfet_01v8 L=0.15 W=2 nf=1
+.ends
+
+** ============================================================
+** Layout-Extracted Netlist (from Magic)
+** ============================================================
+.subckt sa_lay SAE INP INN Q QB VDD VSS
+X0 Q SAE VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X1 QB Q VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X2 a_15_458# INP a_15_128# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X3 QB SAE Q VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X4 QB SAE VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X5 Q QB a_15_458# VSS sky130_fd_pr__nfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X6 a_15_128# SAE VSS VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X7 a_273_458# INN a_15_128# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X8 Q QB VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X9 QB Q a_273_458# VSS sky130_fd_pr__nfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+.ends
+
+** ============================================================
+** Testbench (shared stimulus)
+** ============================================================
+VDD vdd 0 1.8
+VSS vss 0 0
+
+* SAE: precharge(0) 10ns, evaluate(1.8V) 20ns, period 40ns
+VSAE sae 0 PULSE(0 1.8 10n 0.1n 0.1n 19.8n 40n)
+
+* Differential input: INP=0.925V, INN=0.875V (dV=50mV)
+VINP inp 0 0.925
+VINN inn 0 0.875
+
+* Schematic instance
+X_sch sae inp inn q_sch qb_sch vdd vss sa_sch
+CQ_sch q_sch 0 10f
+CQB_sch qb_sch 0 10f
+
+* Layout instance
+X_lay sae inp inn q_lay qb_lay vdd vss sa_lay
+CQ_lay q_lay 0 10f
+CQB_lay qb_lay 0 10f
+
+.tran 0.01n 100n
+
+.control
+run
+
+wrdata $PROJECT_ROOT/analog/sim/postlayout/sa_compare.csv v(sae) v(q_sch) v(qb_sch) v(q_lay) v(qb_lay) v(inp) v(inn)
+
+echo ""
+echo "===== Sense Amplifier: Schematic vs Layout ====="
+echo ""
+
+echo "--- Precharge (SAE=0, t=9ns) ---"
+meas tran sch_q_pre FIND v(q_sch) AT=9n
+meas tran sch_qb_pre FIND v(qb_sch) AT=9n
+meas tran lay_q_pre FIND v(q_lay) AT=9n
+meas tran lay_qb_pre FIND v(qb_lay) AT=9n
+
+echo "--- Evaluate (SAE=1, t=28ns) ---"
+meas tran sch_q_eval FIND v(q_sch) AT=28n
+meas tran sch_qb_eval FIND v(qb_sch) AT=28n
+meas tran lay_q_eval FIND v(q_lay) AT=28n
+meas tran lay_qb_eval FIND v(qb_lay) AT=28n
+
+echo "--- Resolution Time ---"
+meas tran t_sae_rise WHEN v(sae)=0.9 RISE=1
+meas tran t_sch_q_fall WHEN v(q_sch)=0.9 FALL=1
+meas tran t_lay_q_fall WHEN v(q_lay)=0.9 FALL=1
+let t_sch_resolve = t_sch_q_fall - t_sae_rise
+let t_lay_resolve = t_lay_q_fall - t_sae_rise
+echo "Schematic resolve:"
+print t_sch_resolve
+echo "Layout resolve:"
+print t_lay_resolve
+
+quit
+.endc
+
+.end

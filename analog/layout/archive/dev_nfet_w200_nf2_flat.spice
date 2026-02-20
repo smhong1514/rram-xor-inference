@@ -1,0 +1,7 @@
+* NGSPICE file created from dev_nfet_w200_nf2_flat.ext - technology: sky130B
+
+.subckt dev_nfet_w200_nf2_flat
+X0 a_n33_n200# a_n81_n288# a_n125_n200# VSUBS sky130_fd_pr__nfet_01v8 ad=0.33 pd=2.33 as=0.62 ps=4.62 w=2 l=0.15
+X1 a_63_n200# a_15_222# a_n33_n200# VSUBS sky130_fd_pr__nfet_01v8 ad=0.62 pd=4.62 as=0.33 ps=2.33 w=2 l=0.15
+.ends
+

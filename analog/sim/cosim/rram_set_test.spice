@@ -1,0 +1,72 @@
+* Standalone RRAM SET test
+* Direct voltage across RRAM cell to verify OSDI model switching
+.title RRAM_SET_TEST
+
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+
+* RRAM cell (OSDI compact model)
+.subckt rram_cell TE BE Tfilament_0=3.3e-9
+.model rram_local sky130_fd_pr_reram__reram_cell
++ Tfilament_0 = Tfilament_0
++ area_ox = 0.1024e-12
++ Tox = 5.0e-9
++ Tfilament_max = 4.9e-9
++ Tfilament_min = 3.3e-9
++ Eact_generation = 1.501
++ Eact_recombination = 1.500
++ I_k1 = 6.140e-5
++ Tfilament_ref = 4.7249e-9
++ V_ref = 0.430
++ velocity_k1 = 150
++ gamma_k0 = 16.5
++ gamma_k1 = -1.25
++ Temperature_0 = 300
++ C_thermal = 3.1825e-16
++ tau_thermal = 0.23e-9
++ t_step = 1.0e-9
+N1 TE BE rram_local
+.ends rram_cell
+
+* RRAM in HRS (Tfilament=3.5nm)
+X1 te be rram_cell Tfilament_0=3.5e-9
+
+* Access transistor (WL=3.3V always on)
+XM1 be wl sl 0 sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+VWL wl 0 DC 3.3
+VSL sl 0 DC 0
+
+* Apply SET voltage: 0V for 10ns, then ramp to 2.0V, hold for 10us
+VTE te 0 PWL(0 0 10n 0 11n 2.0 10011n 2.0 10012n 0)
+
+.control
+pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+save all
+tran 1n 12000n
+
+echo "=== RRAM SET Test ==="
+echo "V(TE)=2.0V, 10us pulse, Tfilament_0=3.5nm (HRS)"
+echo ""
+
+* Current before SET
+meas tran i_before FIND i(vte) AT=5n
+* Current during SET at various times
+meas tran i_100n FIND i(vte) AT=100n
+meas tran i_500n FIND i(vte) AT=500n
+meas tran i_1us FIND i(vte) AT=1000n
+meas tran i_2us FIND i(vte) AT=2000n
+meas tran i_5us FIND i(vte) AT=5000n
+meas tran i_10us FIND i(vte) AT=10000n
+
+* Voltage across RRAM (TE-BE)
+meas tran v_rram_100n FIND V(te,be) AT=100n
+meas tran v_rram_5us FIND V(te,be) AT=5000n
+
+echo ""
+echo "If current increases significantly over time → SET is working"
+echo "==========================="
+
+wrdata rram_set_test.csv i(vte) v(te) v(be)
+
+.endc
+.end

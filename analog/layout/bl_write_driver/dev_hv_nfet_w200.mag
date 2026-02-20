@@ -1,0 +1,69 @@
+magic
+tech sky130B
+magscale 1 2
+timestamp 1770876393
+<< mvnmos >>
+rect -50 -200 50 200
+<< mvndiff >>
+rect -108 188 -50 200
+rect -108 -188 -96 188
+rect -62 -188 -50 188
+rect -108 -200 -50 -188
+rect 50 188 108 200
+rect 50 -188 62 188
+rect 96 -188 108 188
+rect 50 -200 108 -188
+<< mvndiffc >>
+rect -96 -188 -62 188
+rect 62 -188 96 188
+<< poly >>
+rect -50 272 50 288
+rect -50 238 -34 272
+rect 34 238 50 272
+rect -50 200 50 238
+rect -50 -238 50 -200
+rect -50 -272 -34 -238
+rect 34 -272 50 -238
+rect -50 -288 50 -272
+<< polycont >>
+rect -34 238 34 272
+rect -34 -272 34 -238
+<< locali >>
+rect -50 238 -34 272
+rect 34 238 50 272
+rect -96 188 -62 204
+rect -96 -204 -62 -188
+rect 62 188 96 204
+rect 62 -204 96 -188
+rect -50 -272 -34 -238
+rect 34 -272 50 -238
+<< viali >>
+rect -34 238 34 272
+rect -96 -188 -62 188
+rect 62 -188 96 188
+rect -34 -272 34 -238
+<< metal1 >>
+rect -46 272 46 278
+rect -46 238 -34 272
+rect 34 238 46 272
+rect -46 232 46 238
+rect -102 188 -56 200
+rect -102 -188 -96 188
+rect -62 -188 -56 188
+rect -102 -200 -56 -188
+rect 56 188 102 200
+rect 56 -188 62 188
+rect 96 -188 102 188
+rect 56 -200 102 -188
+rect -46 -238 46 -232
+rect -46 -272 -34 -238
+rect 34 -272 46 -238
+rect -46 -278 46 -272
+<< labels >>
+flabel metal1 s -46 -272 46 -232 0 FreeSans 16 0 0 0 G
+port 0 nsew
+flabel metal1 s -102 -100 -56 100 0 FreeSans 16 0 0 0 S
+port 1 nsew
+flabel metal1 s 56 -100 102 100 0 FreeSans 16 0 0 0 D
+port 2 nsew
+<< end >>

@@ -1,0 +1,6 @@
+* NGSPICE file created from reram_cell_260206_v1.ext - technology: sky130B
+
+.subckt reram_cell_260206_v1 TE BE
+X0 TE BE sky130_fd_pr_reram__reram_cell area_ox=0.0799
+.ends
+

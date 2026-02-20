@@ -1,0 +1,13 @@
+* NGSPICE file created from bl_write_driver_flat.ext - technology: sky130B
+
+.subckt bl_write_driver_flat EN DATA BL VDD VSS
+X0 VDD DATA dev_pfet_w400_0.G VDD sky130_fd_pr__pfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+X1 VSS EN dev_pfet_w400_1.G VSS sky130_fd_pr__nfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+X2 VDD dev_pfet_w400_1.G dev_pfet_w400_1.S VDD sky130_fd_pr__pfet_01v8 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.15
+X3 dev_nfet_w400_1.S dev_pfet_w400_0.G BL VSS sky130_fd_pr__nfet_01v8 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.15
+X4 VDD EN dev_pfet_w400_1.G VDD sky130_fd_pr__pfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+X5 VSS EN dev_nfet_w400_1.S VSS sky130_fd_pr__nfet_01v8 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.15
+X6 dev_pfet_w400_1.S dev_pfet_w400_0.G BL VDD sky130_fd_pr__pfet_01v8 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.15
+X7 VSS DATA dev_pfet_w400_0.G VSS sky130_fd_pr__nfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+.ends
+

@@ -1,0 +1,6 @@
+* NGSPICE file created from test_rcfile_w200.ext - technology: sky130B
+
+.subckt test_rcfile_w200
+X0 a_15_n200# a_n33_n288# a_n73_n200# VSUBS sky130_fd_pr__nfet_01v8 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.15
+.ends
+

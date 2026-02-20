@@ -1,0 +1,58 @@
+* Minimal d_cosim test - no dac bridges, just digital
+.param vdd=1.8
+
+* Digital clock 100MHz
+A_clk 0 clk_d clkmodel
+.model clkmodel d_osc (cntl_array=[-1 1] freq_array=[100Meg 100Meg])
+
+* Analog stimulus
+V_rst rst_a 0 PWL(0 0 24n 0 25n 1.8)
+V_cv  cv_a  0 PWL(0 0 44n 0 45n 1.8 80n 1.8 81n 0)
+V_cw  cw_a  0 DC 0
+V_cr1 cr1_a 0 DC 0
+V_cr0 cr0_a 0 DC 1.8
+V_cc1 cc1_a 0 DC 1.8
+V_cc0 cc0_a 0 DC 0
+V_cd  cd_a  0 DC 0
+V_bs3 bs3_a 0 DC 0
+V_bs2 bs2_a 0 DC 1.8
+V_bs1 bs1_a 0 DC 0
+V_bs0 bs0_a 0 DC 1.8
+
+* ADC bridges
+.model adc1 adc_bridge (in_low=0.6 in_high=1.2 rise_delay=0.1n fall_delay=0.1n)
+A_adc [rst_a cv_a cw_a cr1_a cr0_a cc1_a cc0_a cd_a bs3_a bs2_a bs1_a bs0_a]
++     [rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d bs3_d bs2_d bs1_d bs0_d]
++     adc1
+
+* d_cosim with controller
+A_ctrl [clk_d rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d bs3_d bs2_d bs1_d bs0_d]
++      [cmd_ready_d resp_valid_d resp_data_d
++       wl3_d wl2_d wl1_d wl0_d
++       sl3_d sl2_d sl1_d sl0_d
++       bl_en3_d bl_en2_d bl_en1_d bl_en0_d
++       bl_data3_d bl_data2_d bl_data1_d bl_data0_d
++       write_en_d read_en_d]
++      null cosim_ctrl
+
+.model cosim_ctrl d_cosim (simulation="./controller.so" delay=1n)
+
+* Just ONE dac bridge for cmd_ready to observe
+.model dac1 dac_bridge (out_low=0 out_high=1.8 out_undef=0.9 t_rise=0.5n t_fall=0.5n)
+A_dac_rdy [cmd_ready_d read_en_d write_en_d resp_valid_d wl0_d wl1_d]
++         [rdy_a ren_a wen_a rv_a wl0_a wl1_a]
++         dac1
+
+.control
+save all
+tran 0.5n 120n
+
+echo "=== minimal test ==="
+meas tran rdy_30 FIND v(rdy_a) AT=30n
+meas tran rdy_50 FIND v(rdy_a) AT=50n
+meas tran ren_70 FIND v(ren_a) AT=70n
+meas tran wl1_60 FIND v(wl1_a) AT=60n
+meas tran rv_90 FIND v(rv_a) AT=90n
+echo "=== end ==="
+.endc
+.end

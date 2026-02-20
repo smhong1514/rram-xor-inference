@@ -1,0 +1,111 @@
+* d_cosim basic test - Verify Verilog FSM controller via d_cosim
+* Tests: reset, idle, read command, write command
+
+.param vdd=1.8
+
+*** Digital clock (100MHz) using d_osc ***
+A_clk 0 clk_d clkmodel
+.model clkmodel d_osc (cntl_array=[-1 1] freq_array=[100Meg 100Meg])
+
+*** Analog stimulus for ADC bridge conversion ***
+
+* Reset: active-low, deassert at 25ns
+V_rst rst_a 0 PWL(0 0 24n 0 25n {vdd})
+
+* cmd_valid: pulse at 50ns (read) and 150ns (write)
+V_cv  cv_a  0 PWL(0 0 44n 0 45n {vdd} 60n {vdd} 61n 0
++                  144n 0 145n {vdd} 160n {vdd} 161n 0)
+
+* cmd_write: 0 for read (50ns), 1 for write (150ns)
+V_cw  cw_a  0 PWL(0 0 144n 0 145n {vdd} 161n {vdd} 162n 0)
+
+* cmd_row[1:0] = 01 (row 1): bit1(MSB)=0, bit0(LSB)=1
+V_cr1 cr1_a 0 DC 0
+V_cr0 cr0_a 0 DC {vdd}
+
+* cmd_col[1:0] = 10 (col 2): bit1(MSB)=1, bit0(LSB)=0
+V_cc1 cc1_a 0 DC {vdd}
+V_cc0 cc0_a 0 DC 0
+
+* cmd_data = 1 (for write)
+V_cd  cd_a  0 PWL(0 0 144n 0 145n {vdd} 161n {vdd} 162n 0)
+
+* bl_sense[3:0] = 0101: bit3=0, bit2=1, bit1=0, bit0=1
+V_bs3 bs3_a 0 DC 0
+V_bs2 bs2_a 0 DC {vdd}
+V_bs1 bs1_a 0 DC 0
+V_bs0 bs0_a 0 DC {vdd}
+
+*** ADC bridges: analog → digital ***
+.model adc1 adc_bridge (in_low=0.6 in_high=1.2 rise_delay=0.1n fall_delay=0.1n)
+
+A_adc_rst  [rst_a]  [rst_d]  adc1
+A_adc_cv   [cv_a]   [cv_d]   adc1
+A_adc_cw   [cw_a]   [cw_d]   adc1
+A_adc_cr   [cr1_a cr0_a] [cr1_d cr0_d] adc1
+A_adc_cc   [cc1_a cc0_a] [cc1_d cc0_d] adc1
+A_adc_cd   [cd_a]   [cd_d]   adc1
+A_adc_bs   [bs3_a bs2_a bs1_a bs0_a] [bs3_d bs2_d bs1_d bs0_d] adc1
+
+*** d_cosim instance ***
+* Port order matches inputs.h then outputs.h (MSB first for multi-bit):
+* Inputs  (13 bits): clk, rst_n, cmd_valid, cmd_write,
+*                    cmd_row[1], cmd_row[0], cmd_col[1], cmd_col[0],
+*                    cmd_data,
+*                    bl_sense[3], bl_sense[2], bl_sense[1], bl_sense[0]
+* Outputs (21 bits): cmd_ready, resp_valid, resp_data,
+*                    wl_sel[3:0], sl_sel[3:0], bl_en[3:0], bl_data[3:0],
+*                    write_en, read_en
+* Inouts: null (none)
+
+A_ctrl [clk_d rst_d cv_d cw_d cr1_d cr0_d cc1_d cc0_d cd_d bs3_d bs2_d bs1_d bs0_d]
++      [cmd_ready_d resp_valid_d resp_data_d
++       wl3_d wl2_d wl1_d wl0_d
++       sl3_d sl2_d sl1_d sl0_d
++       bl_en3_d bl_en2_d bl_en1_d bl_en0_d
++       bl_data3_d bl_data2_d bl_data1_d bl_data0_d
++       write_en_d read_en_d]
++      null cosim_ctrl
+
+.model cosim_ctrl d_cosim (simulation="./controller.so" delay=1n)
+
+*** DAC bridges: digital → analog (for observation) ***
+.model dac1 dac_bridge (out_low=0 out_high={vdd} out_undef={vdd/2}
++                        input_load=1e-15 t_rise=0.5n t_fall=0.5n)
+
+A_dac_ctrl [cmd_ready_d resp_valid_d resp_data_d write_en_d read_en_d]
++          [cmd_ready_a resp_valid_a resp_data_a write_en_a read_en_a]
++          dac1
+
+A_dac_wl   [wl3_d wl2_d wl1_d wl0_d]
++          [wl3_a wl2_a wl1_a wl0_a]
++          dac1
+
+A_dac_sl   [sl3_d sl2_d sl1_d sl0_d]
++          [sl3_a sl2_a sl1_a sl0_a]
++          dac1
+
+A_dac_blen [bl_en3_d bl_en2_d bl_en1_d bl_en0_d]
++          [bl_en3_a bl_en2_a bl_en1_a bl_en0_a]
++          dac1
+
+A_dac_bldat [bl_data3_d bl_data2_d bl_data1_d bl_data0_d]
++           [bl_data3_a bl_data2_a bl_data1_a bl_data0_a]
++           dac1
+
+*** Simulation ***
+.control
+save all
+tran 0.5n 300n
+
+echo "=== d_cosim test results ==="
+meas tran rst_ready FIND v(cmd_ready_a) AT=30n
+meas tran rd_wl0 FIND v(wl0_a) AT=65n
+meas tran rd_en FIND v(read_en_a) AT=65n
+meas tran wr_en FIND v(write_en_a) AT=165n
+
+wrdata d_cosim_result.csv v(cmd_ready_a) v(resp_valid_a)
++ v(resp_data_a) v(wl0_a) v(wl1_a) v(write_en_a) v(read_en_a) v(cv_a)
+echo "=== end ==="
+.endc
+.end

@@ -1,0 +1,6 @@
+* NGSPICE file created from dev_nfet_w050.ext - technology: sky130B
+
+.subckt dev_nfet_w050
+X0 a_15_n50# a_n33_n138# a_n73_n50# SUB sky130_fd_pr__nfet_01v8 ad=0.145 pd=1.58 as=0.145 ps=1.58 w=0.5 l=0.15
+.ends
+

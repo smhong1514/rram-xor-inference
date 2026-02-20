@@ -1,0 +1,6 @@
+* NGSPICE file created from test_hv_n_flat.ext - technology: sky130B
+
+.subckt test_hv_n_flat
+X0 dev_hv_nfet_w200_0.D dev_hv_nfet_w200_0.G dev_hv_nfet_w200_0.S VSUBS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+.ends
+

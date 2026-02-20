@@ -1,0 +1,13 @@
+magic
+tech sky130B
+magscale 1 2
+timestamp 1770873682
+<< checkpaint >>
+rect -969 1261 1769 1860
+rect -1260 -1060 1769 1261
+rect -1260 -1260 1261 -1060
+use dev_nfet_w100  dev_nfet_w100_0
+timestamp 1770865356
+transform 1 0 400 0 1 400
+box -109 -200 109 200
+<< end >>

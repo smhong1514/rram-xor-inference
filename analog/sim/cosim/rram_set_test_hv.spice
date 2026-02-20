@@ -1,0 +1,79 @@
+* Standalone RRAM SET test - Higher voltages
+* Compare SET behavior at 2.0V, 2.5V, 3.0V
+.title RRAM_SET_TEST_HV
+
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+
+* RRAM cell (OSDI compact model)
+.subckt rram_cell TE BE Tfilament_0=3.3e-9
+.model rram_local sky130_fd_pr_reram__reram_cell
++ Tfilament_0 = Tfilament_0
++ area_ox = 0.1024e-12
++ Tox = 5.0e-9
++ Tfilament_max = 4.9e-9
++ Tfilament_min = 3.3e-9
++ Eact_generation = 1.501
++ Eact_recombination = 1.500
++ I_k1 = 6.140e-5
++ Tfilament_ref = 4.7249e-9
++ V_ref = 0.430
++ velocity_k1 = 150
++ gamma_k0 = 16.5
++ gamma_k1 = -1.25
++ Temperature_0 = 300
++ C_thermal = 3.1825e-16
++ tau_thermal = 0.23e-9
++ t_step = 1.0e-9
+N1 TE BE rram_local
+.ends rram_cell
+
+* --- Cell A: V=2.5V ---
+X1 te1 be1 rram_cell Tfilament_0=3.5e-9
+XM1 be1 wl1 sl1 0 sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+VWL1 wl1 0 DC 3.3
+VSL1 sl1 0 DC 0
+VTE1 te1 0 PWL(0 0 10n 0 11n 2.5 50011n 2.5 50012n 0)
+
+* --- Cell B: V=3.0V ---
+X2 te2 be2 rram_cell Tfilament_0=3.5e-9
+XM2 be2 wl2 sl2 0 sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+VWL2 wl2 0 DC 3.3
+VSL2 sl2 0 DC 0
+VTE2 te2 0 PWL(0 0 10n 0 11n 3.0 50011n 3.0 50012n 0)
+
+.control
+pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+save all
+tran 10n 55000n
+
+echo "=== RRAM SET Test (Higher Voltages) ==="
+echo ""
+echo "--- Cell A: V(TE)=2.5V ---"
+meas tran ia_100n FIND i(vte1) AT=100n
+meas tran ia_1us FIND i(vte1) AT=1000n
+meas tran ia_5us FIND i(vte1) AT=5000n
+meas tran ia_10us FIND i(vte1) AT=10000n
+meas tran ia_20us FIND i(vte1) AT=20000n
+meas tran ia_50us FIND i(vte1) AT=50000n
+meas tran va_100n FIND V(te1,be1) AT=100n
+meas tran va_5us FIND V(te1,be1) AT=5000n
+meas tran va_50us FIND V(te1,be1) AT=50000n
+
+echo ""
+echo "--- Cell B: V(TE)=3.0V ---"
+meas tran ib_100n FIND i(vte2) AT=100n
+meas tran ib_1us FIND i(vte2) AT=1000n
+meas tran ib_5us FIND i(vte2) AT=5000n
+meas tran ib_10us FIND i(vte2) AT=10000n
+meas tran ib_20us FIND i(vte2) AT=20000n
+meas tran ib_50us FIND i(vte2) AT=50000n
+meas tran vb_100n FIND V(te2,be2) AT=100n
+meas tran vb_5us FIND V(te2,be2) AT=5000n
+meas tran vb_50us FIND V(te2,be2) AT=50000n
+
+echo ""
+echo "==========================="
+.endc
+.end

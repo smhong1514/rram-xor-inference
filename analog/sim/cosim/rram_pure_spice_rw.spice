@@ -1,0 +1,113 @@
+* Pure SPICE RRAM Read-Write-Read test (NO d_cosim)
+* Tests if filament state persists after WRITE using actual circuit
+.title RRAM_PURE_SPICE_RW
+
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+
+* RRAM cell
+.subckt rram_cell TE BE Tfilament_0=3.3e-9
+.model rram_local sky130_fd_pr_reram__reram_cell
++ Tfilament_0 = Tfilament_0
++ area_ox = 0.1024e-12
++ Tox = 5.0e-9
++ Tfilament_max = 4.9e-9
++ Tfilament_min = 3.3e-9
++ Eact_generation = 1.501
++ Eact_recombination = 1.500
++ I_k1 = 6.140e-5
++ Tfilament_ref = 4.7249e-9
++ V_ref = 0.430
++ velocity_k1 = 150
++ gamma_k0 = 16.5
++ gamma_k1 = -1.25
++ Temperature_0 = 300
++ C_thermal = 3.1825e-16
++ tau_thermal = 0.23e-9
++ t_step = 1.0e-9
+N1 TE BE rram_local
+.ends rram_cell
+
+* Single 1T1R cell - Cell starts as HRS (Tfilament=3.5nm)
+X_rram bl n12 rram_cell Tfilament_0=3.5e-9
+XM_acc n12 wl sl 0 sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435
++ pd=3.58 ps=3.58 nrd=0.193 nrs=0.193 sa=0 sb=0 sd=0 mult=1
+
+* WL: always ON at 3.3V
+VWL wl 0 DC 3.3
+
+* SL: grounded during WRITE, floating during READ transition
+* Phase 1 (0-100ns): READ - SL grounded
+* Phase 2 (100ns-5.1us): WRITE - SL grounded
+* Phase 3 (5.2-5.5us): SL disconnected then READ
+VSL sl 0 DC 0
+
+* BL cap
+C_bl bl 0 100f
+
+* Precharge PMOS (gate=prech_ctrl)
+XMP_pre bl prech_ctrl vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1 ad=0.58 as=0.58
++ pd=4.58 ps=4.58 nrd=0.145 nrs=0.145 sa=0 sb=0 sd=0 mult=1
+VDD vdd 0 DC 1.8
+
+* Precharge control: 0=precharge ON, 1.8=precharge OFF
+* ON during 0-50ns, OFF during READ1(50-100ns), OFF during WRITE(100-5100ns),
+* ON during gap(5100-5200ns), OFF during READ2(5200-5300ns)
+V_prech prech_ctrl 0 PWL(0 0 49n 0 50n 1.8 99n 1.8 100n 0
++                       109n 0 110n 1.8 5099n 1.8 5100n 0
++                       5199n 0 5200n 1.8 5299n 1.8 5300n 0)
+
+* BL Write Driver voltage: directly apply to BL during WRITE
+* Phase 1 (50-100ns): no write, BL discharges through RRAM (READ)
+* Phase 2 (110-5100ns): apply 3.0V to BL through resistor (mimics write driver)
+* Phase 3 (5200-5300ns): no write, BL discharges through RRAM (READ2)
+V_write write_node 0 PWL(0 0 109n 0 110n 3.0 5099n 3.0 5100n 0)
+R_write write_node bl 500
+
+* SA reference
+VREF vref 0 DC 0.9
+
+.control
+pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+save all
+tran 1n 5500n
+
+echo "=== Pure SPICE Read-Write-Read Test ==="
+echo ""
+
+echo "--- Phase 1: READ (BL discharges from 1.8V through HRS cell) ---"
+meas tran bl_55 FIND v(bl) AT=55n
+meas tran bl_60 FIND v(bl) AT=60n
+meas tran bl_70 FIND v(bl) AT=70n
+meas tran bl_80 FIND v(bl) AT=80n
+meas tran bl_90 FIND v(bl) AT=90n
+meas tran be_55 FIND v(n12) AT=55n
+
+echo ""
+echo "--- Phase 2: WRITE (3.0V via 500ohm to BL, 5us) ---"
+meas tran bl_200 FIND v(bl) AT=200n
+meas tran be_200 FIND v(n12) AT=200n
+meas tran bl_1000 FIND v(bl) AT=1000n
+meas tran be_1000 FIND v(n12) AT=1000n
+meas tran bl_3000 FIND v(bl) AT=3000n
+meas tran be_3000 FIND v(n12) AT=3000n
+meas tran bl_5000 FIND v(bl) AT=5000n
+meas tran be_5000 FIND v(n12) AT=5000n
+
+echo ""
+echo "--- Phase 3: READ2 (BL discharges from 1.8V - should be faster if SET worked) ---"
+meas tran bl_5210 FIND v(bl) AT=5210n
+meas tran bl_5220 FIND v(bl) AT=5220n
+meas tran bl_5230 FIND v(bl) AT=5230n
+meas tran bl_5240 FIND v(bl) AT=5240n
+meas tran bl_5250 FIND v(bl) AT=5250n
+meas tran bl_5260 FIND v(bl) AT=5260n
+meas tran bl_5280 FIND v(bl) AT=5280n
+meas tran be_5210 FIND v(n12) AT=5210n
+
+echo ""
+echo "Comparing Phase 1 vs Phase 3 BL discharge:"
+echo "Phase 1: bl_70 vs Phase 3: bl_5220 (both at +20ns from precharge off)"
+echo "If Phase 3 drops FASTER → filament grew during WRITE!"
+echo "==========================="
+.endc
+.end
