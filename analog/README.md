@@ -44,7 +44,7 @@ OpenLane 1.1.1이 기대하는 정확한 open_pdks 버전을 사용해야 합니
 |------|-----|
 | PDK | SkyWater Sky130B |
 | open_pdks 커밋 | `bdc9412b3e468c102d01b7cf6337be06ec6e9c9a` |
-| open_pdks 소스 | `~/open_pdks_matched/` |
+| open_pdks 소스 | (local clone) |
 | 설치 경로 | `$PDK_ROOT` |
 | OpenLane 버전 | 1.1.1 (`efabless/openlane:latest`) |
 | RRAM 라이브러리 | `sky130_fd_pr_reram` (open_pdks `--enable-reram-sky130` 옵션) |
@@ -71,7 +71,7 @@ export PDK=sky130B
 **PDK 빌드 방법 (처음 설치 또는 재빌드 시):**
 ```bash
 # 1. open_pdks 소스 준비
-cd ~/open_pdks_matched
+cd open_pdks
 git checkout bdc9412b3e468c102d01b7cf6337be06ec6e9c9a
 
 # 2. 빌드 설정
@@ -831,8 +831,8 @@ ngspice의 `d_cosim` XSPICE 코드 모델을 사용하여 Verilator로 컴파일
 
 ```bash
 # ngspice-43 (d_cosim + KLU 지원 빌드)
-# 설치 경로: ~/ngspice-local/
-~/ngspice-local/bin/ngspice --version   # → ngspice-43
+# 설치 경로: $NGSPICE_HOME (default: ~/ngspice-local)
+$NGSPICE --version   # → ngspice-43
 
 # Verilator (Verilog→C++ 컴파일러)
 verilator --version                      # → Verilator 5.x
@@ -840,9 +840,9 @@ verilator --version                      # → Verilator 5.x
 
 **ngspice-43 빌드** (d_cosim 지원):
 ```bash
-cd ~/ngspice-43
+cd ngspice-43
 mkdir release && cd release
-../configure --prefix=$HOME/ngspice-local \
+../configure --prefix=$NGSPICE_HOME \
   --enable-xspice --enable-cider --enable-osdi \
   --with-ngshared --enable-klu \
   CFLAGS="-O2" LDFLAGS="-lSuiteSparse_config"
@@ -879,14 +879,14 @@ cd $PROJECT_ROOT/analog/sim/cosim
 
 # Step 1: Verilog를 .so로 컴파일 (vlnggen 사용)
 cd verilog
-~/ngspice-local/bin/ngspice -- \
-  ~/ngspice-local/share/ngspice/vlnggen \
+$NGSPICE -- \
+  $VLNGGEN \
   -Wno-CASEINCOMPLETE controller_cosim.v controller.v
 cp controller_cosim.so ../
 cd ..
 
 # Step 2: Co-sim 실행
-~/ngspice-local/bin/ngspice -b rram_cosim_full.spice
+$NGSPICE -b rram_cosim_full.spice
 
 # Step 3: 파형 플롯 (선택)
 python3 plot_cosim_full.py

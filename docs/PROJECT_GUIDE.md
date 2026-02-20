@@ -25,7 +25,7 @@ Sky130 PDK 기반 RRAM 4x4 크로스바 어레이를 이용한 XOR 신경망 inf
 #### 0-1. 시스템 요구사항
 
 ```bash
-# Ubuntu 22.04+ (DGX Spark 등)
+# Ubuntu 22.04+
 sudo apt-get update && sudo apt-get install -y \
   build-essential python3 python3-pip python3-venv \
   tcl-dev tk-dev tcsh csh \
@@ -41,7 +41,7 @@ sudo usermod -aG docker $USER
 pip3 install matplotlib numpy gdsfactory klayout
 ```
 
-#### 0-2. PDK 빌드 (open_pdks → pdk_matched)
+#### 0-2. PDK 빌드 (open_pdks → pdk)
 
 > **PDK 버전 매칭이 핵심입니다.** OpenLane 1.1.1은 특정 open_pdks 커밋을 기대합니다.
 > 불일치 시 `-ignore_mismatches` 플래그가 필요하거나, 미묘한 DRC/설정 차이가 발생합니다.
@@ -67,7 +67,7 @@ git checkout bdc9412b3e468c102d01b7cf6337be06ec6e9c9a
 ./configure --enable-sky130-pdk \
             --enable-reram-sky130 \
             --disable-klayout-sky130 \
-            --prefix=$HOME/pdk_matched
+            --prefix=$HOME/pdk
 
 # 옵션 설명:
 #   --enable-sky130-pdk      : Sky130 PDK 빌드 (필수)
@@ -79,13 +79,13 @@ git checkout bdc9412b3e468c102d01b7cf6337be06ec6e9c9a
 #    make -j1: git clone 충돌 방지를 위해 순차 빌드 권장
 make -j1 2>&1 | tee ~/pdk_build.log
 make install
-# → ~/pdk_matched/share/pdk/ 에 sky130A, sky130B 설치 (~7.3 GB)
+# → ~/pdk/share/pdk/ 에 sky130A, sky130B 설치 (~7.3 GB)
 ```
 
 **환경변수 설정 (~/.bashrc에 추가):**
 
 ```bash
-export PDK_ROOT=$HOME/pdk_matched/share/pdk
+export PDK_ROOT=$HOME/pdk/share/pdk
 export PDK=sky130B
 export SKYWATER_MODELS=$PDK_ROOT/$PDK/libs.tech/ngspice
 ```
@@ -107,12 +107,11 @@ ls $PDK_ROOT/sky130B/libs.tech/combined/sky130_fd_pr_reram__reram_module.osdi
 
 sky130B 내부 파일들이 sky130A로 **절대경로 심볼릭 링크** 되어 있습니다:
 ```
-sky130B/libs.ref/sky130_fd_pr/ → /home/user/pdk_matched/share/pdk/sky130A/libs.ref/...
+sky130B/libs.ref/sky130_fd_pr/ → /home/user/pdk/share/pdk/sky130A/libs.ref/...
 ```
 따라서:
 - Docker에서 PDK를 마운트할 때 **호스트와 동일한 경로**를 사용해야 합니다
 - 다른 사용자/경로에서 사용하려면 PDK를 해당 prefix로 **재빌드** 해야 합니다
-- DGX Spark에서 빌드 시 `--prefix` 경로를 해당 서버 경로로 맞추세요
 
 #### 0-3. 추가 도구 설치
 
@@ -126,28 +125,14 @@ magic --version               # → 8.3 revision 599+
 sudo apt-get install netgen-lvs
 # 또는 소스: https://github.com/RTimothyEdwards/netgen
 
-# ngspice (SPICE 시뮬레이터)
-sudo apt-get install ngspice  # 기본 ngspice-42+ (XOR inference에 충분)
-ngspice --version
-
-# ngspice-43 (d_cosim co-simulation이 필요한 경우에만)
-# d_cosim은 ngspice-43+ 필요, 소스 빌드 필수:
-cd ~
-wget https://sourceforge.net/projects/ngspice/files/ng-spice-rework/43/ngspice-43.tar.gz
-tar xzf ngspice-43.tar.gz && cd ngspice-43
-mkdir release && cd release
-../configure --prefix=$HOME/ngspice-local \
-  --enable-xspice --enable-cider --enable-osdi \
-  --with-ngshared --enable-klu \
-  CFLAGS="-O2" LDFLAGS="-lSuiteSparse_config"
-make -j$(nproc) && make install
-# → ~/ngspice-local/bin/ngspice
+# ngspice-43 (d_cosim co-simulation, OSDI 모델에 필요)
+# 자동 설치: ./setup/install_ngspice.sh
+# 수동 빌드: setup/patches/verilator_shim.patch 참조
 
 # Verilator (d_cosim용 Verilog→C++ 컴파일러, co-sim에만 필요)
 sudo apt-get install verilator    # >= 5.x
 
 # xschem (회로도 편집, GUI 필요 시에만)
-# DGX Spark: X11 forwarding 또는 VNC 필요
 ```
 
 ---
@@ -289,7 +274,7 @@ docker run --rm \
   -v $PDK_ROOT:$PDK_ROOT \
   -e PDK_ROOT=$PDK_ROOT \
   -e PDK=sky130B \
-  efabless/openlane:latest \
+  efabless/openlane:v1.1.1 \
   flow.tcl -design /openlane/designs/rram_ctrl
 
 # 결과 확인
@@ -369,14 +354,13 @@ cd $PROJECT_ROOT/analog/sim/cosim
 
 # 1. Verilog → .so 컴파일 (vlnggen)
 cd verilog
-~/ngspice-local/bin/ngspice -- \
-  ~/ngspice-local/share/ngspice/vlnggen \
+$NGSPICE -- "$VLNGGEN" \
   -Wno-CASEINCOMPLETE controller_cosim.v controller.v
 cp controller_cosim.so ../
 cd ..
 
 # 2. Co-sim 실행
-~/ngspice-local/bin/ngspice -b rram_cosim_full.spice
+$NGSPICE -b rram_cosim_full.spice
 
 # 3. 파형 플롯
 python3 plot_cosim_full.py
@@ -460,141 +444,84 @@ bash gen_all.sh
 
 | 항목 | 상태 | 설명 |
 |------|------|------|
-| XOR inference FSM | 미완 | 기존 Read/Write FSM → XOR 전용 교체 |
-| Input Encoder | 미완 | 2bit→4bit SL 확장 (Verilog) |
-| SAE Control | 미완 | SA enable 타이밍 생성 (Verilog) |
-| Blackbox Verilog 업데이트 | 미완 | 아날로그 블록 LEF/LIB 통합 |
+| XOR inference FSM | ✅ 완료 | xor_controller.v (2-phase) |
+| Input Encoder | ✅ 완료 | input_encoder.v |
+| SAE Control | ✅ 완료 | sae_control.v |
+| Blackbox Verilog | ✅ 완료 | WL Driver, SA, BL WD blackbox 통합 |
+| 2-Array OpenLane PnR | ✅ 완료 | DRC=0, LVS=0, Timing clean |
+| Post-Layout Co-Sim | ✅ 완료 | XOR 4/4 PASS (layout-extracted) |
 | Caravan wrapper | 미완 | Efabless Caravan 칩 통합 |
-| 전체 칩 DRC/LVS | 미완 | 디지털+아날로그 합산 검증 |
 
 ---
 
 ## 폴더 구조
 
 ```
-rram_openlane/
-├── README.md                       # 프로젝트 개요 (간략)
-├── PROJECT_GUIDE.md                # ⭐ 상세 프로젝트 가이드 (이 파일)
+rram-xor-inference/
+├── README.md                       # 프로젝트 개요
+├── env.sh                          # 환경변수 정의
+├── requirements.txt                # Python 의존성
 │
-├── openlane/                   # ✅ 디지털: OpenLane RTL-to-GDS
-│   ├── src/                        # Verilog RTL (5파일, 289줄)
-│   │   ├── rram_ctrl_top.v         #   Top 모듈
-│   │   ├── controller.v            #   FSM 컨트롤러 (v19)
-│   │   ├── row_decoder.v           #   Row 디코더
-│   │   ├── col_decoder.v           #   Column 디코더
-│   │   └── rram_blackbox.v         #   RRAM 매크로 blackbox
-│   ├── gds/rram_4x4_array.gds     # RRAM 매크로 GDS
-│   ├── lef/rram_4x4_array.lef     # RRAM 매크로 LEF
-│   ├── lib/rram_4x4_array.lib     # RRAM 매크로 Liberty (stub)
+├── setup/                          # 환경 설치 스크립트
+│   ├── install_all.sh              # 원클릭 전체 설치
+│   ├── install_deps.sh             # 시스템 패키지
+│   ├── install_pdk.sh              # Sky130 PDK 빌드
+│   ├── install_ngspice.sh          # ngspice-43 빌드
+│   └── patches/verilator_shim.patch
+│
+├── openlane/                       # ✅ OpenLane RTL-to-GDS
+│   ├── src/                        # Verilog RTL
+│   │   ├── rram_ctrl_top.v         #   Top 모듈 (21 매크로 통합)
+│   │   ├── xor_controller.v        #   XOR inference FSM
+│   │   ├── input_encoder.v         #   Phase별 SL 생성
+│   │   ├── sae_control.v           #   SA enable 타이밍
+│   │   └── *_blackbox.v            #   매크로 blackbox 선언
+│   ├── gds/, lef/, lib/            # 매크로 GDS/LEF/LIB
 │   ├── config.json                 # OpenLane 설정
-│   ├── config/macro_placement.cfg  # 매크로 배치 (70,60)
-│   ├── sky130_fd_pr_reram__reram_cell.mag  # RRAM 셀 포트 정의 (LVS용)
-│   ├── generate_array_and_lef_v1.py        # GDS/LEF 생성 스크립트 (594줄)
-│   ├── runs/RUN_2026.02.09_*/     # 최종 빌드 결과
-│   └── README.md                   # 상세 빌드 가이드
+│   ├── config/macro_placement.cfg  # 21 매크로 배치
+│   ├── run_openlane.sh             # Docker 실행 스크립트
+│   └── scripts/fix_lvs_vpb.sh
 │
-├── analog/                         # ✅ 아날로그: CIM 블록 + 시뮬레이션
-│   ├── xschem/                     # xschem 회로도 (.sch)
-│   │   ├── wl_driver.sch           #   WL Driver (8T)
-│   │   ├── sense_amp.sch           #   Sense Amplifier v5 (10T)
-│   │   └── bl_write_driver.sch     #   BL Write Driver (8T)
-│   ├── sim/                        # ngspice 시뮬레이션
-│   │   ├── sense_amp_tb.spice      #   SA testbench
-│   │   ├── bl_write_driver_tb.spice#   BL WD testbench
-│   │   ├── run_xor_2layer.sh       #   ★ 2-Layer XOR (4/4 PASS)
-│   │   └── cosim/                  #   ★ d_cosim co-simulation
-│   │       ├── rram_cosim_full.spice
-│   │       └── verilog/
-│   ├── layout/                     # ✅ 아날로그 레이아웃 (Magic VLSI)
-│   │   ├── devices/                #   PDK 디바이스 셀 (.mag, 10개)
-│   │   ├── bl_write_driver/        #   BL WD: layout + .lib + .lef
-│   │   ├── sense_amp/              #   SA: layout + .lib + .lef
-│   │   ├── wl_driver/              #   WL Driver: layout + .lib + .lef
-│   │   ├── add_taps.tcl            #   BL WD + SA 공용 탭 스크립트
-│   │   ├── gen_lef.tcl             #   LEF 생성 스크립트
-│   │   ├── gen_all.sh              #   LEF/LIB 일괄 생성
-│   │   └── README.md               #   레이아웃 상세 문서
-│   ├── pic/                        # 회로도 이미지
-│   └── README.md                   # 아날로그 상세 문서 (XOR 설계 포함)
+├── analog/                         # ✅ 아날로그 설계 + 시뮬레이션
+│   ├── xschem/                     # 회로도 (.sch)
+│   ├── layout/                     # 레이아웃 + GDS/LEF/LIB
+│   ├── sim/                        # 시뮬레이션
+│   │   ├── cosim/                  # d_cosim co-simulation
+│   │   ├── postsim/               # Post-layout 결과 정리
+│   │   └── postlayout/            # Schematic vs Layout 비교
+│   └── pic/                        # 회로도 이미지
 │
-├── reram_cell_fixed/               # ✅ DRC 수정된 RRAM 셀
-│   ├── gds/                        # 수정된 GDS + .mag 파일
-│   ├── scripts/                    # 생성 스크립트 (01~04)
-│   └── README.txt                  # DRC 수정 문서
+├── reram_cell_fixed/               # RRAM 셀 DRC 수정
 │
-└── archive/                        # 이전 버전/실패 파일들 (참고용)
-    ├── openlane_no_lvs_v2/
-    ├── openlane_gnd_routed_v3/
-    └── scripts/                    # 이전 array 생성 스크립트들 (v1~v7)
+└── docs/                           # 상세 문서
+    ├── ARCHITECTURE.md
+    ├── PROJECT_GUIDE.md            # ⭐ 이 파일
+    └── VERIFICATION.md
 ```
 
 ---
 
-## DGX Spark 이전 가이드
-
-### 최소 재현 순서
-
-DGX Spark Ubuntu 서버에서 이 프로젝트를 처음부터 실행하려면:
+## Quick Start (새 환경에서 재현)
 
 ```bash
 # 1. 레포 클론
-git clone https://github.com/smhong1514/rram_openlane.git
-cd rram_openlane
+git clone https://github.com/smhong1514/rram-xor-inference.git
+cd rram-xor-inference
 
-# 2. PDK 빌드 (가장 시간 소요: 1~2시간)
-git clone https://github.com/RTimothyEdwards/open_pdks.git ~/open_pdks_matched
-cd ~/open_pdks_matched
-git checkout bdc9412b3e468c102d01b7cf6337be06ec6e9c9a
-./configure --enable-sky130-pdk --enable-reram-sky130 \
-            --disable-klayout-sky130 --prefix=$HOME/pdk_matched
-make -j1 && make install
+# 2. 환경 설정 (env.sh 수정 후)
+source env.sh
 
-# ~/.bashrc에 추가:
-echo 'export PDK_ROOT=$HOME/pdk_matched/share/pdk' >> ~/.bashrc
-echo 'export PDK=sky130B' >> ~/.bashrc
-source ~/.bashrc
+# 3. 전체 설치 (PDK + ngspice + 시스템 패키지)
+./setup/install_all.sh
 
-# 3. 도구 설치
-sudo apt-get install -y magic netgen-lvs ngspice docker.io python3-pip
-pip3 install matplotlib numpy
+# 4. XOR co-simulation 실행
+cd analog/sim/cosim
+./run_xor_cosim.sh
 
-# 4. 디지털 빌드 검증 (Docker 필요)
+# 5. OpenLane 빌드 (선택)
 cd $PROJECT_ROOT/openlane
-docker run --rm \
-  -v $(pwd):/openlane/designs/rram_ctrl \
-  -v $PDK_ROOT:$PDK_ROOT \
-  -e PDK_ROOT=$PDK_ROOT -e PDK=sky130B \
-  efabless/openlane:latest \
-  flow.tcl -design /openlane/designs/rram_ctrl
-
-# 5. 아날로그 시뮬레이션
-cd $PROJECT_ROOT/analog/sim
-ngspice -b sense_amp_tb.spice
-bash run_xor_2layer.sh
-
-# 6. 아날로그 레이아웃 재생성 (선택)
-cd $PROJECT_ROOT/analog/layout/bl_write_driver
-magic -noconsole -dnull -rcfile $PDK_ROOT/sky130B/libs.tech/magic/sky130B.magicrc \
-  < bl_write_driver.tcl
-
-# 7. Liberty 재생성 (선택)
-cd $PROJECT_ROOT/analog/layout
-(cd bl_write_driver && python3 char_bl_write_driver.py)
-(cd sense_amp && python3 char_sense_amp.py)
-(cd wl_driver && python3 char_wl_driver.py)
+./run_openlane.sh
 ```
-
-### DGX Spark 주의사항
-
-| 항목 | 내용 |
-|------|------|
-| PDK prefix 경로 | DGX 유저 홈 경로에 맞춰 `--prefix` 변경 필요 |
-| Docker | DGX에서 Docker 권한 확인 (`sudo usermod -aG docker $USER`) |
-| GPU | 이 프로젝트는 GPU 불필요 (EDA 도구는 CPU 기반) |
-| 멀티코어 | Liberty characterization에서 Python multiprocessing 사용 (DGX 코어 수에 비례) |
-| 디스크 | PDK ~7.3GB + 레포 ~500MB + OpenLane Docker ~3GB ≈ **최소 12GB** |
-| X11/GUI | xschem, KLayout 등 GUI 필요 시 X11 forwarding 또는 VNC 설정 |
-| ngspice-43 | d_cosim co-sim에만 필요, 기본 시뮬레이션은 apt ngspice로 충분 |
 
 ---
 
@@ -602,7 +529,7 @@ cd $PROJECT_ROOT/analog/layout
 
 | 도구 | 버전 | 용도 |
 |------|------|------|
-| OpenLane | 1.1.1 (efabless/openlane:latest) | RTL-to-GDS |
+| OpenLane | 1.1.1 (efabless/openlane:v1.1.1) | RTL-to-GDS |
 | open_pdks | commit `bdc9412b` | PDK 소스 (Sky130B + RRAM) |
 | Magic | 8.3 revision 599+ | 레이아웃, DRC, SPICE 추출 |
 | netgen | Sky130B setup | LVS 검증 |
