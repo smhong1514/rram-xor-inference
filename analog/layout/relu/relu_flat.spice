@@ -1,0 +1,10 @@
+* NGSPICE file created from relu_flat.ext - technology: sky130B
+
+.subckt relu_flat
+X0 a_394_1250# a_294_1153# a_236_1250# VSUBS sky130_fd_pr__nfet_01v8 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X1 a_832_1250# a_732_1153# a_674_1250# VSUBS sky130_fd_pr__nfet_01v8 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X2 a_613_400# a_513_303# a_455_400# VSUBS sky130_fd_pr__nfet_01v8 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X3 a_394_2100# a_294_2003# a_236_2100# w_200_2000# sky130_fd_pr__pfet_01v8 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X4 a_832_2100# a_732_2003# a_674_2100# w_638_2000# sky130_fd_pr__pfet_01v8 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+.ends
+

@@ -1,0 +1,526 @@
+* ============================================================
+* XOR v2 Neural Network Mixed-Signal Co-Simulation
+* d_cosim: xor_v2_cosim_top (controller + encoder + sae_control)
+* Analog: RRAM 3x5 + 5x2 + 7x WL + 7x SA + 7x BL WD
+*
+* Architecture: 3-input / 5-hidden / 2-output XOR
+*   Phase 0: Array 1 (3x5) -> 5 SAs -> h[4:0]
+*   Phase 1: Array 2 (5x2) -> 2 SAs -> z[1:0] = XOR
+*
+* All SAs: single-ended (BL vs VREF)
+* SA connection: INP=BL, INN=VREF  (INP<INN → Q=1 = threshold met)
+*
+* Test: all 4 XOR combinations
+*   t=100ns   A=0,B=0 -> expect 0
+*   t=2000ns  A=0,B=1 -> expect 1
+*   t=4000ns  A=1,B=0 -> expect 1
+*   t=6000ns  A=1,B=1 -> expect 0
+* ============================================================
+.title XOR_V2_COSIM
+
+** --------------------------------------------------------
+** Sky130 PDK device models
+** --------------------------------------------------------
+.lib /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+
+** --------------------------------------------------------
+** RRAM cell model: fixed resistor for READ-only inference
+** (OSDI model causes read-disturb → resistance drift between tests)
+** LRS (Tfilament_0=4.5nm): R=7kΩ, HRS (Tfilament_0=3.5nm): R=200kΩ
+** Calibrated from Test 1 BL discharge: 1 LRS → BL≈1.42V @ 40ns, C_BL=20pF
+** --------------------------------------------------------
+.subckt rram_lrs TE BE
+R1 TE BE 7k
+.ends rram_lrs
+.subckt rram_hrs TE BE
+R1 TE BE 200k
+.ends rram_hrs
+
+** --------------------------------------------------------
+** WL Driver (layout-extracted, 8 transistors)
+** --------------------------------------------------------
+.subckt wl_driver IN OUT VDD VWL VSS
+X0 OUT a_423_138# VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X1 a_423_138# IN VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X2 a_342_589# a_57_213# VSS VSS sky130_fd_pr__nfet_g5v0d10v5 ad=0.58 pd=4.58 as=0.58 ps=4.58 w=2 l=0.5
+X3 a_57_213# IN VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X4 OUT a_423_138# VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=1.16 pd=8.58 as=1.16 ps=8.58 w=4 l=0.5
+X5 a_57_213# IN VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X6 a_423_138# a_342_589# VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+X7 a_342_589# a_423_138# VWL VWL sky130_fd_pr__pfet_g5v0d10v5 ad=0.29 pd=2.58 as=0.29 ps=2.58 w=1 l=0.5
+.ends wl_driver
+
+** --------------------------------------------------------
+** Sense Amplifier (StrongARM, 10 transistors)
+** --------------------------------------------------------
+.subckt sense_amp SAE INP INN Q QB VDD VSS
+X0 Q SAE VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X1 QB Q VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X2 a_15_458# INP a_15_128# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X3 QB SAE Q VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X4 QB SAE VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X5 Q QB a_15_458# VSS sky130_fd_pr__nfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X6 a_15_128# SAE VSS VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X7 a_273_458# INN a_15_128# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.15
+X8 Q QB VDD VDD sky130_fd_pr__pfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+X9 QB Q a_273_458# VSS sky130_fd_pr__nfet_01v8 ad=0.27 pd=2.54 as=0.27 ps=2.54 w=1 l=0.15
+.ends sense_amp
+
+** --------------------------------------------------------
+** BL Write Driver (tri-state, 8 transistors)
+** --------------------------------------------------------
+.subckt bl_write_driver EN DATA BL VDD VSS
+X0 a_186_658# a_57_128# VDD VDD sky130_fd_pr__pfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X1 BL a_291_609# a_186_658# VDD sky130_fd_pr__pfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X2 a_57_128# EN VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X3 a_291_609# DATA VSS VSS sky130_fd_pr__nfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X4 a_57_128# EN VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+X5 a_186_128# EN VSS VSS sky130_fd_pr__nfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X6 BL a_291_609# a_186_128# VSS sky130_fd_pr__nfet_01v8 ad=1.08 pd=8.54 as=1.08 ps=8.54 w=4 l=0.15
+X7 a_291_609# DATA VDD VDD sky130_fd_pr__pfet_01v8 ad=0.135 pd=1.54 as=0.135 ps=1.54 w=0.5 l=0.15
+.ends bl_write_driver
+
+** ============================================================
+** RRAM Array 1 (3x5): 3 inputs x 5 hidden neurons
+** ============================================================
+** SL0=x1, SL1=x2, SL2=bias(always 1)
+** BL0=h0(OR), BL1=h1(NAND via QB), BL2=h2(x1), BL3=h3(x2), BL4=h4(spare)
+**
+** Weight matrix W1 (LRS=4.5e-9, HRS=3.5e-9):
+**        BL0  BL1  BL2  BL3  BL4
+** SL0:   LRS  LRS  LRS  HRS  HRS   (x1)
+** SL1:   LRS  LRS  HRS  LRS  HRS   (x2)
+** SL2:   LRS  HRS  LRS  LRS  HRS   (bias)
+** ============================================================
+.subckt rram_array_1 BL0 BL1 BL2 BL3 BL4 WL0 WL1 WL2 WL3 WL4 SL0 SL1 SL2 GND
+* Row 0 (SL0 = x1): w = [1,1,1,0,0]
+XR00 BL0 n00 rram_lrs
+XM00 n00 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR01 BL1 n01 rram_lrs
+XM01 n01 WL1 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR02 BL2 n02 rram_lrs
+XM02 n02 WL2 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR03 BL3 n03 rram_hrs
+XM03 n03 WL3 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR04 BL4 n04 rram_hrs
+XM04 n04 WL4 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+* Row 1 (SL1 = x2): w = [1,1,0,1,0]
+XR10 BL0 n10 rram_lrs
+XM10 n10 WL0 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR11 BL1 n11 rram_lrs
+XM11 n11 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR12 BL2 n12 rram_hrs
+XM12 n12 WL2 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR13 BL3 n13 rram_lrs
+XM13 n13 WL3 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR14 BL4 n14 rram_hrs
+XM14 n14 WL4 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+* Row 2 (SL2 = bias, always 1): w = [1,0,1,1,0]
+XR20 BL0 n20 rram_lrs
+XM20 n20 WL0 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR21 BL1 n21 rram_hrs
+XM21 n21 WL1 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR22 BL2 n22 rram_lrs
+XM22 n22 WL2 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR23 BL3 n23 rram_lrs
+XM23 n23 WL3 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR24 BL4 n24 rram_hrs
+XM24 n24 WL4 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+.ends rram_array_1
+
+** ============================================================
+** RRAM Array 2 (5x2): 5 hidden -> 2 output (redundant XOR)
+** ============================================================
+** SL0=h0(OR), SL1=h1(NAND), SL2=h2(x1), SL3=h3(x2), SL4=h4(spare)
+** BL0=z1, BL1=z2 (both = XOR, same weights)
+**
+** Weight matrix W2:
+**        BL0  BL1
+** SL0:   LRS  LRS   (h0=OR)
+** SL1:   LRS  LRS   (h1=NAND)
+** SL2:   HRS  HRS   (h2=x1, unused)
+** SL3:   HRS  HRS   (h3=x2, unused)
+** SL4:   HRS  HRS   (h4=spare, unused)
+** ============================================================
+.subckt rram_array_2 BL0 BL1 WL0 WL1 SL0 SL1 SL2 SL3 SL4 GND
+* Row 0 (SL0 = h0=OR): w = [1,1]
+XR00 BL0 n00 rram_lrs
+XM00 n00 WL0 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR01 BL1 n01 rram_lrs
+XM01 n01 WL1 SL0 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+* Row 1 (SL1 = h1=NAND): w = [1,1]
+XR10 BL0 n10 rram_lrs
+XM10 n10 WL0 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR11 BL1 n11 rram_lrs
+XM11 n11 WL1 SL1 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+* Row 2 (SL2 = h2=x1, unused): w = [0,0]
+XR20 BL0 n20 rram_hrs
+XM20 n20 WL0 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR21 BL1 n21 rram_hrs
+XM21 n21 WL1 SL2 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+* Row 3 (SL3 = h3=x2, unused): w = [0,0]
+XR30 BL0 n30 rram_hrs
+XM30 n30 WL0 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR31 BL1 n31 rram_hrs
+XM31 n31 WL1 SL3 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+* Row 4 (SL4 = h4=spare): w = [0,0]
+XR40 BL0 n40 rram_hrs
+XM40 n40 WL0 SL4 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+XR41 BL1 n41 rram_hrs
+XM41 n41 WL1 SL4 GND sky130_fd_pr__nfet_g5v0d10v5 L=0.5 W=1.5 nf=1 ad=0.435 as=0.435 pd=3.58 ps=3.58
+.ends rram_array_2
+
+** ========================================================
+** SIMULATION OPTIONS
+** ========================================================
+.options reltol=5e-3
+.options abstol=1e-10
+.options vntol=1e-5
+.options gmin=1e-12
+.options method=gear
+
+** ========================================================
+** POWER SUPPLIES
+** ========================================================
+VDD  vdd     0 DC 1.8
+VWLP vwl_pwr 0 DC 3.3
+** Separate VREF for each SA (eliminates coupling, enables per-SA tuning)
+** VREF=1.20V: midpoint between ACTUAL 1-LRS (1.35-1.41V) and 2-LRS (0.99-1.06V)
+** BL levels include SL pull-up reverse current effect
+** Margin: 1-LRS side=150mV, 2-LRS side=140mV (both >> 50mV SA offset)
+VREF   vref_a    0 DC 1.20
+VREF10 vref_sa10 0 DC 1.20
+VREF11 vref_sa11 0 DC 1.20
+VREF12 vref_sa12 0 DC 1.20
+VREF13 vref_sa13 0 DC 1.20
+VREF14 vref_sa14 0 DC 1.20
+VREF20 vref_sa20 0 DC 1.20
+VREF21 vref_sa21 0 DC 1.20
+
+** ========================================================
+** DIGITAL CLOCK (200MHz)
+** ========================================================
+A_clk 0 clk_d clkmodel
+.model clkmodel d_osc (cntl_array=[-1 1] freq_array=[200Meg 200Meg])
+
+** ========================================================
+** COMMAND STIMULUS
+** ========================================================
+* Reset: active-low, deassert at 50ns
+V_rst rst_a 0 PWL(0 0 49n 0 50n 1.8)
+
+* Start pulse at 100ns, 2000ns, 4000ns, 6000ns
+V_start start_a 0 PWL(0 0
++   99n 0 100n 1.8 120n 1.8 121n 0
++   1999n 0 2000n 1.8 2020n 1.8 2021n 0
++   3999n 0 4000n 1.8 4020n 1.8 4021n 0
++   5999n 0 6000n 1.8 6020n 1.8 6021n 0)
+
+* Input A: 0 (Tests 1,2), 1 (Tests 3,4)
+* Inputs must stay HIGH for entire inference (encoder uses them directly)
+V_ia ia_a 0 PWL(0 0 3999n 0 4000n 1.8)
+
+* Input B: 0 (Test 1), 1 (Test 2), 0 (Test 3), 1 (Test 4)
+V_ib ib_a 0 PWL(0 0 1999n 0 2000n 1.8 3999n 1.8 4000n 0 5999n 0 6000n 1.8)
+
+** ========================================================
+** ADC BRIDGES: Analog -> Digital
+** ========================================================
+.model adc1 adc_bridge (in_low=0.6 in_high=1.2 rise_delay=0.1n fall_delay=0.1n)
+
+* Command inputs
+A_adc_cmd [rst_a start_a ia_a ib_a]
++         [rst_d start_d ia_d ib_d]
++         adc1
+
+* SA1 feedback: Q[4:0] and QB[4:0] (10 signals)
+A_adc_sa1q [sa1_q4_a sa1_q3_a sa1_q2_a sa1_q1_a sa1_q0_a]
++          [sa1q4_d sa1q3_d sa1q2_d sa1q1_d sa1q0_d]
++          adc1
+
+A_adc_sa1qb [sa1_qb4_a sa1_qb3_a sa1_qb2_a sa1_qb1_a sa1_qb0_a]
++           [sa1qb4_d sa1qb3_d sa1qb2_d sa1qb1_d sa1qb0_d]
++           adc1
+
+* SA2 feedback: Q[1:0] (2 signals)
+A_adc_sa2q [sa2_q1_a sa2_q0_a]
++          [sa2q1_d sa2q0_d]
++          adc1
+
+** ========================================================
+** d_cosim XOR CONTROLLER v2 (Verilator)
+** ========================================================
+* Inputs (17): clk, rst_n, start, input_a, input_b,
+*              sa1_q[4:0], sa1_qb[4:0], sa2_q[1:0]
+* Outputs (20): ready, result_valid, xor_result,
+*               wl_en_1[4:0], wl_en_2[1:0],
+*               phase, sae,
+*               sl_data_1[2:0], sl_data_2[4:0]
+A_ctrl [clk_d rst_d start_d ia_d ib_d
++       sa1q4_d sa1q3_d sa1q2_d sa1q1_d sa1q0_d
++       sa1qb4_d sa1qb3_d sa1qb2_d sa1qb1_d sa1qb0_d
++       sa2q1_d sa2q0_d]
++      [rdy_d rv_d xr_d
++       wl1_4_d wl1_3_d wl1_2_d wl1_1_d wl1_0_d
++       wl2_1_d wl2_0_d
++       phase_d sae_d
++       sl1_2_d sl1_1_d sl1_0_d
++       sl2_4_d sl2_3_d sl2_2_d sl2_1_d sl2_0_d]
++      null cosim_xor_v2
+.model cosim_xor_v2 d_cosim (simulation="./verilog/xor_v2_cosim_top.so" delay=1n)
+
+** ========================================================
+** DAC BRIDGES: Digital -> Analog
+** ========================================================
+.model dac1 dac_bridge (out_low=0 out_high=1.8 out_undef=0.9
++                       t_rise=0.5n t_fall=0.5n)
+
+* Status signals
+A_dac_status [rdy_d rv_d xr_d]
++            [rdy_a rv_a xr_a]
++            dac1
+
+* WL enables for Array 1 (5 bits)
+A_dac_wl1 [wl1_4_d wl1_3_d wl1_2_d wl1_1_d wl1_0_d]
++         [wl1_in4 wl1_in3 wl1_in2 wl1_in1 wl1_in0]
++         dac1
+
+* WL enables for Array 2 (2 bits)
+A_dac_wl2 [wl2_1_d wl2_0_d]
++         [wl2_in1 wl2_in0]
++         dac1
+
+* Phase and SAE
+A_dac_ctrl [phase_d sae_d]
++          [phase_a sae_a]
++          dac1
+
+* SL data for Array 1 (3 bits)
+A_dac_sl1 [sl1_2_d sl1_1_d sl1_0_d]
++         [sl1_en2 sl1_en1 sl1_en0]
++         dac1
+
+* SL data for Array 2 (5 bits)
+A_dac_sl2 [sl2_4_d sl2_3_d sl2_2_d sl2_1_d sl2_0_d]
++         [sl2_en4 sl2_en3 sl2_en2 sl2_en1 sl2_en0]
++         dac1
+
+** ========================================================
+** BL PRECHARGE CONTROL
+** Array 1: precharge OFF during Phase 0 (wl_on AND NOT phase)
+** Array 2: precharge OFF during Phase 1 (wl_on AND phase)
+** ========================================================
+A_or_wl1 [wl1_4_d wl1_3_d wl1_2_d wl1_1_d wl1_0_d] wl1_on_d d_or5_model
+.model d_or5_model d_or (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+
+A_inv_phase phase_d nphase_d d_inv_model
+.model d_inv_model d_inverter (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+
+* Array 1 precharge release = wl1_on AND NOT phase
+A_prech1_gate [wl1_on_d nphase_d] prech1_d d_and_model
+.model d_and_model d_and (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_dac_prech1 [prech1_d] [prech1_a] dac1
+
+* Array 2 precharge release = wl2_on AND phase
+A_or_wl2 [wl2_1_d wl2_0_d] wl2_on_d d_or2_model
+.model d_or2_model d_or (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_prech2_gate [wl2_on_d phase_d] prech2_d d_and2_model
+.model d_and2_model d_and (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_dac_prech2 [prech2_d] [prech2_a] dac1
+
+** Per-array SAE gating (avoid supply noise from metastable SAs)
+** SA1 only evaluates in Phase 0, SA2 only evaluates in Phase 1
+A_sae1_gate [sae_d nphase_d] sae1_d d_and3_model
+.model d_and3_model d_and (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_dac_sae1 [sae1_d] [sae1_a] dac1
+
+A_sae2_gate [sae_d phase_d] sae2_d d_and4_model
+.model d_and4_model d_and (rise_delay=0.1n fall_delay=0.1n input_load=1e-15)
+A_dac_sae2 [sae2_d] [sae2_a] dac1
+
+** ========================================================
+** ANALOG SIGNAL CHAIN — ARRAY 1 (Layer 1: 3x5)
+** ========================================================
+
+** WL Drivers for Array 1 (5x)
+x_wld1_0 wl1_in0 wl1_0 vdd vwl_pwr 0 wl_driver
+x_wld1_1 wl1_in1 wl1_1 vdd vwl_pwr 0 wl_driver
+x_wld1_2 wl1_in2 wl1_2 vdd vwl_pwr 0 wl_driver
+x_wld1_3 wl1_in3 wl1_3 vdd vwl_pwr 0 wl_driver
+x_wld1_4 wl1_in4 wl1_4 vdd vwl_pwr 0 wl_driver
+
+** BL Precharge for Array 1 (5 BLs, PMOS, release during Phase 0)
+XMP_pre1_0 a1_bl0 prech1_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_pre1_1 a1_bl1 prech1_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_pre1_2 a1_bl2 prech1_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_pre1_3 a1_bl3 prech1_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_pre1_4 a1_bl4 prech1_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+
+** BL Parasitic Capacitance Array 1 (20pF: 200MHz clock, ~43ns discharge)
+** R_eff≈10kΩ: 0 LRS→1.79V, 1 LRS→1.45V, 2 LRS→1.17V, VREF=1.31V
+C_a1_bl0 a1_bl0 0 20p
+C_a1_bl1 a1_bl1 0 20p
+C_a1_bl2 a1_bl2 0 20p
+C_a1_bl3 a1_bl3 0 20p
+C_a1_bl4 a1_bl4 0 20p
+
+** SL Ground Switches for Array 1 (3 rows)
+XMN_sl1_0 a1_sl0 sl1_en0 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+XMN_sl1_1 a1_sl1 sl1_en1 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+XMN_sl1_2 a1_sl2 sl1_en2 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+
+** SL Pull-up PMOS for Array 1 (prevent parasitic discharge through non-active rows)
+** When sl_en=0 (row inactive): PMOS ON → SL=VDD → V_RRAM=BL-SL=0, no current
+** When sl_en=1 (row active):   PMOS OFF → NFET grounds SL normally
+XMP_slpu1_0 a1_sl0 sl1_en0 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_slpu1_1 a1_sl1 sl1_en1 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_slpu1_2 a1_sl2 sl1_en2 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+
+** BL Write Drivers for Array 1 (disabled: EN=0, DATA=0)
+x_blw1_0 0 0 a1_bl0 vdd 0 bl_write_driver
+x_blw1_1 0 0 a1_bl1 vdd 0 bl_write_driver
+x_blw1_2 0 0 a1_bl2 vdd 0 bl_write_driver
+x_blw1_3 0 0 a1_bl3 vdd 0 bl_write_driver
+x_blw1_4 0 0 a1_bl4 vdd 0 bl_write_driver
+
+** RRAM 3x5 Array 1
+x_rram1 a1_bl0 a1_bl1 a1_bl2 a1_bl3 a1_bl4
++        wl1_0 wl1_1 wl1_2 wl1_3 wl1_4
++        a1_sl0 a1_sl1 a1_sl2 0 rram_array_1
+
+** Sense Amplifiers for Array 1 (5x, single-ended: INP=BL, INN=VREF)
+** SA polarity: INP > INN → Q=0; INP < INN → Q=1
+** So: BL < VREF (threshold met) → Q=1 (correct for RTL)
+** Using sae1_a: only active during Phase 0
+x_sa1_0 sae1_a a1_bl0 vref_sa10 sa1_q0_a sa1_qb0_a vdd 0 sense_amp
+x_sa1_1 sae1_a a1_bl1 vref_sa11 sa1_q1_a sa1_qb1_a vdd 0 sense_amp
+x_sa1_2 sae1_a a1_bl2 vref_sa12 sa1_q2_a sa1_qb2_a vdd 0 sense_amp
+x_sa1_3 sae1_a a1_bl3 vref_sa13 sa1_q3_a sa1_qb3_a vdd 0 sense_amp
+x_sa1_4 sae1_a a1_bl4 vref_sa14 sa1_q4_a sa1_qb4_a vdd 0 sense_amp
+
+** ========================================================
+** ANALOG SIGNAL CHAIN — ARRAY 2 (Layer 2: 5x2)
+** ========================================================
+
+** WL Drivers for Array 2 (2x)
+x_wld2_0 wl2_in0 wl2_0 vdd vwl_pwr 0 wl_driver
+x_wld2_1 wl2_in1 wl2_1 vdd vwl_pwr 0 wl_driver
+
+** BL Precharge for Array 2 (2 BLs, release during Phase 1)
+XMP_pre2_0 a2_bl0 prech2_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_pre2_1 a2_bl1 prech2_a vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+
+** BL Parasitic Capacitance Array 2 (20pF: same as Array 1)
+C_a2_bl0 a2_bl0 0 20p
+C_a2_bl1 a2_bl1 0 20p
+
+** SL Ground Switches for Array 2 (5 rows)
+XMN_sl2_0 a2_sl0 sl2_en0 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+XMN_sl2_1 a2_sl1 sl2_en1 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+XMN_sl2_2 a2_sl2 sl2_en2 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+XMN_sl2_3 a2_sl3 sl2_en3 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+XMN_sl2_4 a2_sl4 sl2_en4 0 0 sky130_fd_pr__nfet_01v8 L=0.15 W=10 nf=1
++ ad=2.9 as=2.9 pd=20.58 ps=20.58
+
+** SL Pull-up PMOS for Array 2 (prevent parasitic discharge through non-active rows)
+** When sl_en=0 (row inactive): PMOS ON → SL=VDD → V_RRAM=BL-SL=0, no current
+** When sl_en=1 (row active):   PMOS OFF → NFET grounds SL normally
+XMP_slpu2_0 a2_sl0 sl2_en0 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_slpu2_1 a2_sl1 sl2_en1 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_slpu2_2 a2_sl2 sl2_en2 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_slpu2_3 a2_sl3 sl2_en3 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+XMP_slpu2_4 a2_sl4 sl2_en4 vdd vdd sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
++ ad=0.58 as=0.58 pd=4.58 ps=4.58
+
+** BL Write Drivers for Array 2 (disabled)
+x_blw2_0 0 0 a2_bl0 vdd 0 bl_write_driver
+x_blw2_1 0 0 a2_bl1 vdd 0 bl_write_driver
+
+** RRAM 5x2 Array 2
+x_rram2 a2_bl0 a2_bl1 wl2_0 wl2_1
++        a2_sl0 a2_sl1 a2_sl2 a2_sl3 a2_sl4 0 rram_array_2
+
+** Sense Amplifiers for Array 2 (2x, single-ended: INP=BL, INN=VREF)
+** Using sae2_a: only active during Phase 1
+x_sa2_0 sae2_a a2_bl0 vref_sa20 sa2_q0_a sa2_qb0_a vdd 0 sense_amp
+x_sa2_1 sae2_a a2_bl1 vref_sa21 sa2_q1_a sa2_qb1_a vdd 0 sense_amp
+
+** ========================================================
+** SIMULATION CONTROL
+** ========================================================
+.control
+* pre_osdi not needed (using fixed resistors instead of OSDI RRAM model)
+* pre_osdi /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+save all
+tran 1n 8000n
+
+echo ""
+echo "=============================================="
+echo "XOR v2 Inference Mixed-Signal Co-Simulation"
+echo "=============================================="
+echo ""
+
+* Test 1: A=0, B=0 -> expect XOR=0
+echo "--- Test 1: A=0, B=0 -> expect XOR=0 ---"
+meas tran rv1_t WHEN v(rv_a)=0.9 RISE=1
+meas tran xr1 FIND v(xr_a) WHEN v(rv_a)=0.9 RISE=1
+
+echo ""
+* Test 2: A=0, B=1 -> expect XOR=1
+echo "--- Test 2: A=0, B=1 -> expect XOR=1 ---"
+meas tran rv2_t WHEN v(rv_a)=0.9 RISE=2
+meas tran xr2 FIND v(xr_a) WHEN v(rv_a)=0.9 RISE=2
+
+echo ""
+* Test 3: A=1, B=0 -> expect XOR=1
+echo "--- Test 3: A=1, B=0 -> expect XOR=1 ---"
+meas tran rv3_t WHEN v(rv_a)=0.9 RISE=3
+meas tran xr3 FIND v(xr_a) WHEN v(rv_a)=0.9 RISE=3
+
+echo ""
+* Test 4: A=1, B=1 -> expect XOR=0
+echo "--- Test 4: A=1, B=1 -> expect XOR=0 ---"
+meas tran rv4_t WHEN v(rv_a)=0.9 RISE=4
+meas tran xr4 FIND v(xr_a) WHEN v(rv_a)=0.9 RISE=4
+
+echo ""
+echo "=============================================="
+
+* Save CSV
+wrdata xor_v2_cosim.csv
++ v(rdy_a) v(rv_a) v(xr_a) v(phase_a) v(sae_a) v(start_a)
++ v(a1_bl0) v(a1_bl1) v(a1_bl2) v(a1_bl3) v(a1_bl4)
++ v(sa1_q0_a) v(sa1_q1_a) v(sa1_q2_a) v(sa1_q3_a) v(sa1_q4_a)
++ v(sa1_qb0_a) v(sa1_qb1_a)
++ v(a2_bl0) v(a2_bl1)
++ v(sa2_q0_a) v(sa2_q1_a)
++ v(ia_a) v(ib_a)
++ v(prech1_a) v(prech2_a)
++ v(sae1_a) v(sae2_a)
++ v(vref_a)
++ v(a1_sl0) v(a1_sl1) v(a1_sl2)
++ v(a2_sl0) v(a2_sl1) v(a2_sl2) v(a2_sl3) v(a2_sl4)
+
+.endc
+.end

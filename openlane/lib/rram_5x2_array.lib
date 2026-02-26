@@ -1,0 +1,147 @@
+/*
+ * Liberty file for rram_array_5x2_260222
+ * 5 rows (SL) x 2 columns (WL/BL) RRAM crossbar array
+ * Generated from Sky130 PDK RRAM specs (same cell as rram_4x4_array)
+ */
+
+library (rram_5x2_array_lib) {
+
+  technology (cmos) ;
+  delay_model : table_lookup ;
+  time_unit : "1ns" ;
+  voltage_unit : "1V" ;
+  current_unit : "1mA" ;
+  capacitive_load_unit (1, pf) ;
+  pulling_resistance_unit : "1kohm" ;
+  leakage_power_unit : "1nW" ;
+
+  nom_process : 1.0 ;
+  nom_temperature : 25.0 ;
+  nom_voltage : 1.8 ;
+
+  default_input_pin_cap : 0.001 ;
+  default_output_pin_cap : 0.0 ;
+  default_inout_pin_cap : 0.001 ;
+  default_fanout_load : 1.0 ;
+
+  cell (rram_array_5x2_260222) {
+    area : 344.03 ;  /* 10.870 x 31.650 um^2 */
+    dont_touch : true ;
+    dont_use : true ;
+    is_macro_cell : true ;
+
+    /* Word Lines - 2 columns */
+    pin (WL[0]) {
+      direction : input ;
+      capacitance : 0.000066 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "WL[0]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+    pin (WL[1]) {
+      direction : input ;
+      capacitance : 0.000066 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "WL[1]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+
+    /* Bit Lines - 2 columns */
+    pin (BL[0]) {
+      direction : inout ;
+      capacitance : 0.000063 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "BL[0]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+    pin (BL[1]) {
+      direction : inout ;
+      capacitance : 0.000063 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "BL[1]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+
+    /* Source Lines - 5 rows */
+    pin (SL[0]) {
+      direction : inout ;
+      capacitance : 0.000056 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "SL[0]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+    pin (SL[1]) {
+      direction : inout ;
+      capacitance : 0.000056 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "SL[1]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+    pin (SL[2]) {
+      direction : inout ;
+      capacitance : 0.000056 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "SL[2]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+    pin (SL[3]) {
+      direction : inout ;
+      capacitance : 0.000056 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "SL[3]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+    pin (SL[4]) {
+      direction : inout ;
+      capacitance : 0.000056 ;
+      max_transition : 10.0 ;
+      timing () {
+        timing_type : min_pulse_width ;
+        related_pin : "SL[4]" ;
+        rise_constraint (scalar) { values ("1000.0") ; }
+        fall_constraint (scalar) { values ("1000.0") ; }
+      }
+    }
+
+    /* Ground */
+    pin (GND) {
+      direction : inout ;
+      is_ground : true ;
+      capacitance : 0.000071 ;
+    }
+
+  }
+
+}

@@ -1,0 +1,8 @@
+* ReLU 5T OTA Schematic Netlist (for LVS)
+.subckt relu VBL VREF OUT VBIAS VDD VSS
+XM3 node_A node_A VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=2 nf=1 mult=1
+XM4 OUT node_A VDD VDD sky130_fd_pr__pfet_01v8 L=0.5 W=2 nf=1 mult=1
+XM1 node_A VREF TAIL VSS sky130_fd_pr__nfet_01v8 L=0.5 W=2 nf=1 mult=1
+XM2 OUT VBL TAIL VSS sky130_fd_pr__nfet_01v8 L=0.5 W=2 nf=1 mult=1
+XM5 TAIL VBIAS VSS VSS sky130_fd_pr__nfet_01v8 L=0.5 W=2 nf=1 mult=1
+.ends relu

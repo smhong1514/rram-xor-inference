@@ -1,0 +1,10 @@
+* NGSPICE file created from relu.ext - technology: sky130B
+
+.subckt relu VBL VREF OUT VBIAS VDD VSS
+X0 OUT a_42_709# VDD VDD sky130_fd_pr__pfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.5
+X1 OUT VBL a_15_428# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.5
+X2 a_42_709# a_42_709# VDD VDD sky130_fd_pr__pfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.5
+X3 a_42_709# VREF a_15_428# VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.5
+X4 a_15_428# VBIAS VSS VSS sky130_fd_pr__nfet_01v8 ad=0.54 pd=4.54 as=0.54 ps=4.54 w=2 l=0.5
+.ends
+

@@ -1,0 +1,80 @@
+library (relu) {
+  comment : "ReLU activation function, 5T OTA, Sky130B tt corner, 25C";
+  technology (cmos);
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1v";
+  current_unit : "1uA";
+  pulling_resistance_unit : "1kohm";
+  capacitive_load_unit (1, pF);
+
+  nom_process : 1.0;
+  nom_temperature : 25.0;
+  nom_voltage : 1.80;
+
+  input_threshold_pct_rise : 50;
+  input_threshold_pct_fall : 50;
+  output_threshold_pct_rise : 50;
+  output_threshold_pct_fall : 50;
+  slew_lower_threshold_pct_rise : 20;
+  slew_upper_threshold_pct_rise : 80;
+  slew_lower_threshold_pct_fall : 20;
+  slew_upper_threshold_pct_fall : 80;
+
+  default_cell_leakage_power : 0;
+  default_fanout_load : 1;
+  default_output_pin_cap : 0.0;
+  default_input_pin_cap : 0.0;
+  default_inout_pin_cap : 0.0;
+
+  operating_conditions (typical) {
+    process : 1.0;
+    temperature : 25.0;
+    voltage : 1.80;
+  }
+  default_operating_conditions : typical;
+
+  cell (relu) {
+    is_macro_cell : true;
+    dont_touch : true;
+    dont_use : true;
+    area : 33.014;
+
+    pin (VDD) {
+      direction : inout;
+    }
+    pg_pin (VDD) {
+      voltage_name : VDD;
+      pg_type : primary_power;
+    }
+
+    pin (VSS) {
+      direction : inout;
+    }
+    pg_pin (VSS) {
+      voltage_name : VSS;
+      pg_type : primary_ground;
+    }
+
+    pin (VBL) {
+      direction : input;
+      capacitance : 0.002;
+    }
+
+    pin (VREF) {
+      direction : input;
+      capacitance : 0.002;
+    }
+
+    pin (OUT) {
+      direction : output;
+      max_capacitance : 0.5;
+      function : "VBL";
+    }
+
+    pin (VBIAS) {
+      direction : input;
+      capacitance : 0.002;
+    }
+  }
+}

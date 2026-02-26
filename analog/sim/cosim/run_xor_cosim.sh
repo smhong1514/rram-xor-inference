@@ -1,10 +1,12 @@
 #!/bin/bash
 # ============================================================
-# 2-Array XOR Inference Mixed-Signal Co-Simulation
+# RRAM XOR Inference Mixed-Signal Co-Simulation (v3 ReLU)
 # ============================================================
 # XOR(A,B) = AND( OR(A,B), NAND(A,B) )
-#   Phase 0: Array 1 → SA1(OR), SA2(NAND)
-#   Phase 1: Array 2 → SA3(AND = XOR result)
+#
+# v3: Analog ReLU activation between Layer 1 and Layer 2
+#   Phase 0: Array 1 WLs ON → BL1 develops → ReLU outputs settle
+#   Phase 1: Array 2 WLs ON (Array 1 stays ON) → BL2 → SA latch
 #
 # Requirements:
 #   - ngspice-43 with d_cosim + KLU ($NGSPICE_HOME/)
@@ -13,9 +15,10 @@
 #   - Python 3 + numpy + matplotlib (for plotting)
 #
 # Usage:
-#   ./run_xor_cosim.sh          # Full run (compile + simulate + plot)
-#   ./run_xor_cosim.sh --sim    # Skip compile, run simulation only
-#   ./run_xor_cosim.sh --plot   # Skip compile+sim, plot only
+#   ./run_xor_cosim.sh             # v3 schematic (default)
+#   ./run_xor_cosim.sh --postlayout # v3 post-layout (PEX)
+#   ./run_xor_cosim.sh --sim       # Skip compile, run simulation only
+#   ./run_xor_cosim.sh --plot      # Skip compile+sim, plot only
 # ============================================================
 set -e
 
@@ -29,14 +32,30 @@ VERILOG_DIR="$SCRIPT_DIR/verilog"
 # Parse arguments
 SKIP_COMPILE=false
 SKIP_SIM=false
+POSTLAYOUT=false
 case "${1:-}" in
+    --postlayout) POSTLAYOUT=true ;;
     --sim)  SKIP_COMPILE=true ;;
     --plot) SKIP_COMPILE=true; SKIP_SIM=true ;;
 esac
 
+SPICE_FILE="xor_v3_cosim.spice"
+LOG_FILE="xor_v3_cosim.log"
+CSV_FILE="xor_v3_cosim.csv"
+WRAPPER="xor_v3_cosim_top.v"
+SO_FILE="xor_v3_cosim_top.so"
+
+if [ "$POSTLAYOUT" = true ]; then
+    SPICE_FILE="xor_v3_postlayout.spice"
+    LOG_FILE="xor_v3_postlayout.log"
+    CSV_FILE="xor_v3_postlayout.csv"
+    echo "Mode: Post-Layout (PEX parasitic caps)"
+fi
+
 echo "============================================================"
-echo " 2-Array XOR Inference Mixed-Signal Co-Simulation"
+echo " RRAM XOR Inference Mixed-Signal Co-Simulation (v3 ReLU)"
 echo " XOR(A,B) = AND( OR(A,B), NAND(A,B) )"
+echo " Testbench: $SPICE_FILE"
 echo "============================================================"
 echo ""
 
@@ -44,31 +63,29 @@ echo ""
 # Step 1: Compile Verilog → .so via vlnggen (Verilator)
 # --------------------------------------------------------
 if [ "$SKIP_COMPILE" = false ]; then
-    echo "[1/3] Compiling Verilog RTL → xor_cosim_top.so ..."
+    echo "[1/3] Compiling Verilog RTL → $SO_FILE ..."
     echo "  RTL sources:"
     echo "    - $RTL_DIR/xor_controller.v"
     echo "    - $RTL_DIR/input_encoder.v"
     echo "    - $RTL_DIR/sae_control.v"
-    echo "    - $VERILOG_DIR/xor_cosim_top.v (d_cosim wrapper)"
+    echo "    - $VERILOG_DIR/$WRAPPER (d_cosim wrapper)"
     echo ""
 
     cd "$VERILOG_DIR"
 
-    # vlnggen must be invoked via ngspice with -- separator
-    # to prevent -Wno-CASEINCOMPLETE from being parsed as ngspice flag
     $NGSPICE -- "$VLNGGEN" \
         -Wno-CASEINCOMPLETE \
-        xor_cosim_top.v \
+        "$WRAPPER" \
         "$RTL_DIR/xor_controller.v" \
         "$RTL_DIR/input_encoder.v" \
         "$RTL_DIR/sae_control.v"
 
-    if [ ! -f xor_cosim_top.so ]; then
-        echo "ERROR: xor_cosim_top.so not generated!"
+    if [ ! -f "$SO_FILE" ]; then
+        echo "ERROR: $SO_FILE not generated!"
         exit 1
     fi
 
-    echo "  → Compiled: $VERILOG_DIR/xor_cosim_top.so"
+    echo "  → Compiled: $VERILOG_DIR/$SO_FILE"
     echo ""
     cd "$SCRIPT_DIR"
 else
@@ -81,27 +98,25 @@ fi
 # --------------------------------------------------------
 if [ "$SKIP_SIM" = false ]; then
     echo "[2/3] Running ngspice mixed-signal simulation ..."
-    echo "  Testbench: xor_cosim.spice"
     echo "  OSDI model: sky130_fd_pr_reram__reram_module.osdi"
-    echo "  Clock: 200MHz, BL cap: 5pF, Tran: 8000ns"
+    echo "  Clock: 200MHz, VREF=1.25V"
     echo ""
 
-    $NGSPICE -b xor_cosim.spice > xor_cosim.log 2>&1
+    $NGSPICE -b "$SPICE_FILE" > "$LOG_FILE" 2>&1
     EXIT_CODE=$?
 
     if [ $EXIT_CODE -ne 0 ]; then
         echo "ERROR: ngspice exited with code $EXIT_CODE"
-        echo "Check xor_cosim.log for details."
+        echo "Check $LOG_FILE for details."
         exit 1
     fi
 
-    echo "  → Simulation complete. Log: xor_cosim.log"
-    echo "  → Waveform data: xor_cosim.csv"
+    echo "  → Simulation complete. Log: $LOG_FILE"
+    echo "  → Waveform data: $CSV_FILE"
     echo ""
 
-    # Print measurement results
     echo "--- Measurement Results ---"
-    grep -E "Test|xr[1-4]" xor_cosim.log
+    grep -E "Test|xr[1-4]|PASS|FAIL" "$LOG_FILE" | head -20
     echo ""
 else
     echo "[2/3] Skipping simulation (--plot)"
@@ -113,8 +128,8 @@ fi
 # --------------------------------------------------------
 echo "[3/3] Generating plots ..."
 
-if [ ! -f xor_cosim.csv ]; then
-    echo "ERROR: xor_cosim.csv not found. Run simulation first."
+if [ ! -f "$CSV_FILE" ]; then
+    echo "ERROR: $CSV_FILE not found. Run simulation first."
     exit 1
 fi
 
@@ -123,8 +138,7 @@ python3 plot_xor_cosim.py
 echo ""
 echo "============================================================"
 echo " Results:"
-echo "   xor_cosim.log          - Simulation log + measurements"
-echo "   xor_cosim.csv          - Raw waveform data"
-echo "   xor_cosim_full.png     - 7-panel full overview"
-echo "   xor_cosim_detail.png   - Per-test zoomed view"
+echo "   $LOG_FILE    - Simulation log + measurements"
+echo "   $CSV_FILE    - Raw waveform data"
+echo "   xor_v3_cosim_full.png  - Full overview plot"
 echo "============================================================"

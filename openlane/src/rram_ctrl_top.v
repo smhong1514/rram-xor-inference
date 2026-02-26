@@ -1,12 +1,18 @@
-// RRAM XOR Inference Top Module (2-Array Architecture)
+// RRAM XOR Inference Top Module v3 (ReLU Activation)
 // Integrates: XOR controller + input encoder + SAE control
-//           + 8x WL driver + 3x Sense Amp + 8x BL Write Driver
-//           + 2x RRAM 4x4 array
+//           + 7x WL driver + 5x ReLU + 2x Sense Amp + 7x BL Write Driver
+//           + RRAM 3x5 array + RRAM 5x2 array
 //
-// 2-Layer XOR: XOR(A,B) = AND( OR(A,B), NAND(A,B) )
-// Array 1 (Layer 1): OR + NAND (simultaneous, independent weights)
-// Array 2 (Layer 2): AND (independent weights)
-// 2-phase time-multiplexed inference
+// Total: 23 analog macros
+//   Array 1 (Layer 1): 1x RRAM 3x5 + 5x WL + 5x BL_WD
+//   Layer 1→2:         5x ReLU (analog activation)
+//   Array 2 (Layer 2): 1x RRAM 5x2 + 2x WL + 2x SA + 2x BL_WD
+//
+// v2→v3 changes:
+//   - 5x Layer 1 SAs removed (replaced by 5x ReLU)
+//   - BL1[i] → ReLU[i] → SL2[i] (direct analog path)
+//   - No digital hidden layer (h_reg removed)
+//   - Single inference pass (no 2-phase digital latching)
 
 module rram_ctrl_top (
 `ifdef USE_POWER_PINS
@@ -19,38 +25,56 @@ module rram_ctrl_top (
     // RRAM array ground
     inout  wire        rram_gnd,
 
+    // VREF for Sense Amplifiers and ReLU
+    inout  wire        vref,
+
+    // VBIAS for ReLU tail current
+    inout  wire        vbias,
+
     // XOR inference interface
     input  wire        start,
-    input  wire        input_a,
-    input  wire        input_b,
+    input  wire        input_a,      // x1
+    input  wire        input_b,      // x2
     output wire        xor_result,
     output wire        result_valid,
     output wire        ready,
 
     // Analog block control
-    output wire        phase,       // 0=Layer1, 1=Layer2
-    output wire        sae          // SAE output (debug observability)
+    output wire        phase,        // 0=Layer1 settling, 1=Layer2 settling
+    output wire        sae           // SAE output (debug observability)
 );
 
-    // Internal signals
-    wire [3:0] wl_en;       // Controller → WL drivers (shared for both arrays)
-    wire [3:0] wl_out_1;    // WL drivers → Array 1 WL
-    wire [3:0] wl_out_2;    // WL drivers → Array 2 WL
-    wire [3:0] sl_data_1;   // Encoder → Array 1 SL
-    wire [3:0] sl_data_2;   // Encoder → Array 2 SL
-    wire [3:0] bl_bus_1;    // Array 1 BL ↔ SA1/SA2 ↔ BL Write Driver 1
-    wire [3:0] bl_bus_2;    // Array 2 BL ↔ SA3 ↔ BL Write Driver 2
-    wire       sae_trigger, sae_done;
-    wire       h1, h2;
-    wire       sa1_q, sa1_qb;
-    wire       sa2_q, sa2_qb;
-    wire       sa3_q, sa3_qb;
+    // =========================================================
+    // Internal Signals
+    // =========================================================
+
+    // Controller <-> WL drivers
+    wire [4:0] wl_en_1;        // Array 1 WL enables
+    wire [1:0] wl_en_2;        // Array 2 WL enables
+    wire [4:0] wl_out_1;       // WL driver outputs → Array 1
+    wire [1:0] wl_out_2;       // WL driver outputs → Array 2
+
+    // Encoder → Array 1 SL
+    wire [2:0] sl_data_1;
+
+    // Array BL buses
+    wire [4:0] bl_bus_1;       // Array 1 BL (5 columns)
+    wire [1:0] bl_bus_2;       // Array 2 BL (2 columns)
+
+    // ReLU outputs → Array 2 SL
+    wire [4:0] relu_out;       // ReLU analog outputs
+
+    // SAE handshake
+    wire sae_trigger, sae_done;
+
+    // SA outputs — Layer 2 only (2 SAs)
+    wire [1:0] sa2_q, sa2_qb;
 
     // =========================================================
     // Digital Logic
     // =========================================================
 
-    // XOR Controller FSM
+    // XOR Controller FSM (v3: single-pass, no digital hidden layer)
     xor_controller u_ctrl (
         .clk          (clk),
         .rst_n        (rst_n),
@@ -60,29 +84,22 @@ module rram_ctrl_top (
         .xor_result   (xor_result),
         .result_valid (result_valid),
         .ready        (ready),
-        .wl_en        (wl_en),
+        .wl_en_1      (wl_en_1),
+        .wl_en_2      (wl_en_2),
         .phase        (phase),
         .sae_trigger  (sae_trigger),
         .sae_done     (sae_done),
-        .sa1_q        (sa1_q),
-        .sa2_q        (sa2_q),
-        .sa3_q        (sa3_q),
-        .h1_out       (h1),
-        .h2_out       (h2)
+        .sa2_q        (sa2_q)
     );
 
-    // Input Encoder: phase + inputs → SL data for each array
+    // Input Encoder: inputs → SL1 (Array 1 only)
     input_encoder u_enc (
-        .phase     (phase),
         .input_a   (input_a),
         .input_b   (input_b),
-        .h1        (h1),
-        .h2        (h2),
-        .sl_data_1 (sl_data_1),
-        .sl_data_2 (sl_data_2)
+        .sl_data_1 (sl_data_1)
     );
 
-    // SAE Timing Controller
+    // SAE Timing Controller (Layer 2 SAs only)
     sae_control u_sae (
         .clk      (clk),
         .rst_n    (rst_n),
@@ -92,41 +109,25 @@ module rram_ctrl_top (
     );
 
     // =========================================================
-    // Analog Macros — Array 1 (Layer 1: OR + NAND)
+    // Analog Macros — Array 1 (Layer 1: 3x5)
     // =========================================================
 
-    // WL Drivers for Array 1
-    wl_driver u_wl_drv_1_0 (.IN(wl_en[0]), .OUT(wl_out_1[0]));
-    wl_driver u_wl_drv_1_1 (.IN(wl_en[1]), .OUT(wl_out_1[1]));
-    wl_driver u_wl_drv_1_2 (.IN(wl_en[2]), .OUT(wl_out_1[2]));
-    wl_driver u_wl_drv_1_3 (.IN(wl_en[3]), .OUT(wl_out_1[3]));
-
-    // SA1: Array 1 BL[0] vs BL[1] → OR result
-    sense_amp u_sa1 (
-        .SAE (sae),
-        .INP (bl_bus_1[0]),
-        .INN (bl_bus_1[1]),
-        .Q   (sa1_q),
-        .QB  (sa1_qb)
-    );
-
-    // SA2: Array 1 BL[2] vs BL[3] → NAND result
-    sense_amp u_sa2 (
-        .SAE (sae),
-        .INP (bl_bus_1[2]),
-        .INN (bl_bus_1[3]),
-        .Q   (sa2_q),
-        .QB  (sa2_qb)
-    );
+    // WL Drivers for Array 1 (5 columns)
+    wl_driver u_wl_drv_1_0 (.IN(wl_en_1[0]), .OUT(wl_out_1[0]));
+    wl_driver u_wl_drv_1_1 (.IN(wl_en_1[1]), .OUT(wl_out_1[1]));
+    wl_driver u_wl_drv_1_2 (.IN(wl_en_1[2]), .OUT(wl_out_1[2]));
+    wl_driver u_wl_drv_1_3 (.IN(wl_en_1[3]), .OUT(wl_out_1[3]));
+    wl_driver u_wl_drv_1_4 (.IN(wl_en_1[4]), .OUT(wl_out_1[4]));
 
     // BL Write Drivers for Array 1 (disabled during inference)
     bl_write_driver u_bl_wd_1_0 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_1[0]));
     bl_write_driver u_bl_wd_1_1 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_1[1]));
     bl_write_driver u_bl_wd_1_2 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_1[2]));
     bl_write_driver u_bl_wd_1_3 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_1[3]));
+    bl_write_driver u_bl_wd_1_4 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_1[4]));
 
-    // RRAM 4x4 Array 1
-    rram_4x4_array u_rram_array_1 (
+    // RRAM 3x5 Array 1
+    rram_array_3x5_260222 u_rram_array_1 (
         .GND (rram_gnd),
         .WL  (wl_out_1),
         .BL  (bl_bus_1),
@@ -134,36 +135,50 @@ module rram_ctrl_top (
     );
 
     // =========================================================
-    // Analog Macros — Array 2 (Layer 2: AND)
+    // ReLU Activation (Layer 1 → Layer 2)
+    // BL1[i] → ReLU[i] → SL2[i]
     // =========================================================
 
-    // WL Drivers for Array 2
-    wl_driver u_wl_drv_2_0 (.IN(wl_en[0]), .OUT(wl_out_2[0]));
-    wl_driver u_wl_drv_2_1 (.IN(wl_en[1]), .OUT(wl_out_2[1]));
-    wl_driver u_wl_drv_2_2 (.IN(wl_en[2]), .OUT(wl_out_2[2]));
-    wl_driver u_wl_drv_2_3 (.IN(wl_en[3]), .OUT(wl_out_2[3]));
+    relu u_relu_0 (.VBL(bl_bus_1[0]), .VREF(vref), .OUT(relu_out[0]), .VBIAS(vbias));
+    relu u_relu_1 (.VBL(bl_bus_1[1]), .VREF(vref), .OUT(relu_out[1]), .VBIAS(vbias));
+    relu u_relu_2 (.VBL(bl_bus_1[2]), .VREF(vref), .OUT(relu_out[2]), .VBIAS(vbias));
+    relu u_relu_3 (.VBL(bl_bus_1[3]), .VREF(vref), .OUT(relu_out[3]), .VBIAS(vbias));
+    relu u_relu_4 (.VBL(bl_bus_1[4]), .VREF(vref), .OUT(relu_out[4]), .VBIAS(vbias));
 
-    // SA3: Array 2 BL[0] vs BL[1] → AND result
-    sense_amp u_sa3 (
+    // =========================================================
+    // Analog Macros — Array 2 (Layer 2: 5x2, AND → XOR)
+    // =========================================================
+
+    // WL Drivers for Array 2 (2 columns)
+    wl_driver u_wl_drv_2_0 (.IN(wl_en_2[0]), .OUT(wl_out_2[0]));
+    wl_driver u_wl_drv_2_1 (.IN(wl_en_2[1]), .OUT(wl_out_2[1]));
+
+    // Sense Amplifiers for Array 2 (2 BLs, each vs VREF)
+    sense_amp u_sa_2_0 (
         .SAE (sae),
         .INP (bl_bus_2[0]),
-        .INN (bl_bus_2[1]),
-        .Q   (sa3_q),
-        .QB  (sa3_qb)
+        .INN (vref),
+        .Q   (sa2_q[0]),
+        .QB  (sa2_qb[0])
+    );
+    sense_amp u_sa_2_1 (
+        .SAE (sae),
+        .INP (bl_bus_2[1]),
+        .INN (vref),
+        .Q   (sa2_q[1]),
+        .QB  (sa2_qb[1])
     );
 
     // BL Write Drivers for Array 2 (disabled during inference)
     bl_write_driver u_bl_wd_2_0 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_2[0]));
     bl_write_driver u_bl_wd_2_1 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_2[1]));
-    bl_write_driver u_bl_wd_2_2 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_2[2]));
-    bl_write_driver u_bl_wd_2_3 (.EN(1'b0), .DATA(1'b0), .BL(bl_bus_2[3]));
 
-    // RRAM 4x4 Array 2
-    rram_4x4_array u_rram_array_2 (
+    // RRAM 5x2 Array 2 (SL driven by ReLU outputs)
+    rram_array_5x2_260222 u_rram_array_2 (
         .GND (rram_gnd),
         .WL  (wl_out_2),
         .BL  (bl_bus_2),
-        .SL  (sl_data_2)
+        .SL  (relu_out)
     );
 
 endmodule

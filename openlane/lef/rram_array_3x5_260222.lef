@@ -1,0 +1,155 @@
+VERSION 5.7 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+MACRO rram_array_3x5_260222
+  CLASS BLOCK ;
+  FOREIGN rram_array_3x5_260222 0 0 ;
+  ORIGIN 0 0 ;
+  SIZE 22.870 BY 20.650 ;
+  SYMMETRY X Y ;
+
+  PIN WL[0]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 3.970 1.500 4.330 2.000 ;
+    END
+  END WL[0]
+
+  PIN WL[1]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 7.970 1.500 8.330 2.000 ;
+    END
+  END WL[1]
+
+  PIN WL[2]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 11.970 1.500 12.330 2.000 ;
+    END
+  END WL[2]
+
+  PIN WL[3]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 15.970 1.500 16.330 2.000 ;
+    END
+  END WL[3]
+
+  PIN WL[4]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 19.970 1.500 20.330 2.000 ;
+    END
+  END WL[4]
+
+  PIN BL[0]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 5.015 1.500 5.335 2.000 ;
+    END
+  END BL[0]
+
+  PIN BL[1]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 9.015 1.500 9.335 2.000 ;
+    END
+  END BL[1]
+
+  PIN BL[2]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 13.015 1.500 13.335 2.000 ;
+    END
+  END BL[2]
+
+  PIN BL[3]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 17.015 1.500 17.335 2.000 ;
+    END
+  END BL[3]
+
+  PIN BL[4]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 21.015 1.500 21.335 2.000 ;
+    END
+  END BL[4]
+
+  PIN SL[0]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 22.830 4.270 23.330 4.590 ;
+    END
+  END SL[0]
+
+  PIN SL[1]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 22.830 9.770 23.330 10.090 ;
+    END
+  END SL[1]
+
+  PIN SL[2]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 22.830 15.270 23.330 15.590 ;
+    END
+  END SL[2]
+
+  PIN GND
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met1 ;
+        RECT 1.500 2.300 2.000 2.800 ;
+    END
+  END GND
+
+  OBS
+    LAYER nwell ;
+      RECT 0.000 0.000 22.870 20.650 ;
+    LAYER li1 ;
+      RECT 0.500 0.500 22.370 20.150 ;
+    LAYER met1 ;
+      RECT 3.000 0.000 22.370 20.150 ;
+    LAYER met1 ;
+      RECT 0.000 3.800 3.000 20.150 ;
+    LAYER met2 ;
+      RECT 0.000 0.500 21.830 20.150 ;
+    LAYER met3 ;
+      RECT 0.000 3.000 22.870 20.150 ;
+  END
+
+END rram_array_3x5_260222
+
+END LIBRARY

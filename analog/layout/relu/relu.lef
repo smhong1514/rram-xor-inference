@@ -1,0 +1,138 @@
+VERSION 5.7 ;
+  NOWIREEXTENSIONATPIN ON ;
+  DIVIDERCHAR "/" ;
+  BUSBITCHARS "[]" ;
+MACRO relu
+  CLASS BLOCK ;
+  FOREIGN relu ;
+  ORIGIN 0.030 0.000 ;
+  SIZE 3.040 BY 10.860 ;
+  PIN VBL
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    ANTENNAGATEAREA 1.000000 ;
+    PORT
+      LAYER li1 ;
+        RECT 2.150 6.520 2.480 6.690 ;
+      LAYER met1 ;
+        RECT 2.170 6.460 2.460 6.750 ;
+    END
+  END VBL
+  PIN VREF
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    ANTENNAGATEAREA 1.000000 ;
+    PORT
+      LAYER li1 ;
+        RECT 0.510 6.520 0.840 6.690 ;
+      LAYER met1 ;
+        RECT 0.530 6.460 0.820 6.750 ;
+    END
+  END VREF
+  PIN OUT
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    ANTENNADIFFAREA 1.080000 ;
+    PORT
+      LAYER li1 ;
+        RECT 2.620 7.690 2.790 9.460 ;
+        RECT 2.620 4.390 2.790 6.160 ;
+      LAYER met1 ;
+        RECT 2.570 8.000 2.840 9.440 ;
+        RECT 2.560 7.710 2.840 8.000 ;
+        RECT 2.560 7.680 2.820 7.710 ;
+        RECT 2.560 6.140 2.820 6.160 ;
+        RECT 2.560 5.840 2.840 6.140 ;
+        RECT 2.570 4.410 2.840 5.840 ;
+      LAYER met2 ;
+        RECT 2.560 7.980 2.820 8.000 ;
+        RECT 2.560 5.870 2.830 7.980 ;
+        RECT 2.560 5.840 2.820 5.870 ;
+    END
+  END OUT
+  PIN VBIAS
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    ANTENNAGATEAREA 1.000000 ;
+    PORT
+      LAYER li1 ;
+        RECT 1.330 3.520 1.660 3.690 ;
+      LAYER met1 ;
+        RECT 1.350 3.460 1.640 3.750 ;
+    END
+  END VBIAS
+  PIN VDD
+    DIRECTION INOUT ;
+    USE POWER ;
+    PORT
+      LAYER nwell ;
+        RECT -0.030 7.400 3.010 10.440 ;
+      LAYER li1 ;
+        RECT 0.190 9.890 1.150 10.220 ;
+        RECT 1.830 9.890 2.790 10.220 ;
+        RECT 0.190 7.690 0.360 9.460 ;
+        RECT 1.830 7.690 2.000 9.460 ;
+      LAYER met1 ;
+        RECT 0.000 10.380 2.980 10.860 ;
+        RECT 0.140 7.710 0.410 10.380 ;
+        RECT 0.930 9.910 1.200 10.380 ;
+        RECT 1.780 7.710 2.050 10.380 ;
+        RECT 2.570 9.910 2.840 10.380 ;
+    END
+  END VDD
+  PIN VSS
+    DIRECTION INOUT ;
+    USE GROUND ;
+    PORT
+      LAYER li1 ;
+        RECT 1.010 1.390 1.180 3.160 ;
+        RECT 0.190 0.640 1.150 0.970 ;
+        RECT 1.830 0.640 2.790 0.970 ;
+      LAYER met1 ;
+        RECT 0.960 0.950 1.230 3.140 ;
+        RECT 0.140 0.480 0.410 0.950 ;
+        RECT 0.930 0.480 1.230 0.950 ;
+        RECT 1.780 0.480 2.050 0.950 ;
+        RECT 2.570 0.480 2.840 0.950 ;
+        RECT 0.000 0.000 2.980 0.480 ;
+    END
+  END VSS
+  OBS
+      LAYER li1 ;
+        RECT 0.980 7.690 1.150 9.460 ;
+        RECT 0.510 7.170 0.840 7.340 ;
+        RECT 2.150 7.170 2.480 7.340 ;
+        RECT 0.190 4.390 0.360 6.160 ;
+        RECT 0.980 4.390 1.150 6.160 ;
+        RECT 1.830 4.390 2.000 6.160 ;
+        RECT 1.800 1.390 1.970 3.160 ;
+      LAYER met1 ;
+        RECT 0.930 8.000 1.200 9.440 ;
+        RECT 0.920 7.710 1.200 8.000 ;
+        RECT 0.920 7.680 1.180 7.710 ;
+        RECT 0.540 7.110 2.450 7.400 ;
+        RECT 0.920 7.080 1.180 7.110 ;
+        RECT 0.920 6.140 1.180 6.160 ;
+        RECT 0.140 4.700 0.410 6.140 ;
+        RECT 0.920 5.840 1.200 6.140 ;
+        RECT 0.130 4.410 0.410 4.700 ;
+        RECT 0.930 4.410 1.200 5.840 ;
+        RECT 1.780 4.700 2.050 6.140 ;
+        RECT 1.770 4.410 2.050 4.700 ;
+        RECT 0.130 4.380 0.390 4.410 ;
+        RECT 1.770 4.380 2.030 4.410 ;
+        RECT 1.740 3.140 2.000 3.160 ;
+        RECT 1.740 2.840 2.020 3.140 ;
+        RECT 1.750 1.410 2.020 2.840 ;
+      LAYER met2 ;
+        RECT 0.920 7.980 1.180 8.000 ;
+        RECT 0.920 5.870 1.190 7.980 ;
+        RECT 0.920 5.840 1.180 5.870 ;
+        RECT 0.130 4.680 0.390 4.700 ;
+        RECT 1.770 4.680 2.030 4.700 ;
+        RECT 0.130 2.870 2.040 4.680 ;
+        RECT 1.740 2.840 2.000 2.870 ;
+  END
+END relu
+END LIBRARY
+
