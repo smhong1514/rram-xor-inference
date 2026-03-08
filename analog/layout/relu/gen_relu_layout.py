@@ -200,7 +200,8 @@ def via1_on_m1(cts, at_top=True):
 # ======================================================================
 # Header
 # ======================================================================
-emit("tech load /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/magic/sky130B.tech")
+pdk_root = os.environ.get("PDK_ROOT", os.path.expanduser("~/pdk/share/pdk"))
+emit(f"tech load {pdk_root}/sky130B/libs.tech/magic/sky130B.tech")
 emit("drc style drc(full)")
 emit("drc off")
 emit("snap internal")
@@ -477,7 +478,7 @@ emit("gds write relu.gds")
 emit("quit -noprompt")
 
 # Write TCL file
-out_dir = "/home/hsm/rram_openlane/analog/layout/relu"
+out_dir = os.path.dirname(os.path.abspath(__file__))
 tcl_path = os.path.join(out_dir, "relu_gen.tcl")
 with open(tcl_path, "w") as f:
     f.write("\n".join(T))

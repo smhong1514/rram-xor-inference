@@ -1,4 +1,4 @@
-tech load /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/magic/sky130B.tech
+tech load $env(PDK_ROOT)/sky130B/libs.tech/magic/sky130B.tech
 drc style drc(full)
 snap internal
 

@@ -27,7 +27,7 @@
 ** --------------------------------------------------------
 ** Sky130 PDK device models
 ** --------------------------------------------------------
-.lib /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
 
 ** --------------------------------------------------------
 ** RRAM cell subcircuit (OSDI compact model)
@@ -371,7 +371,7 @@ x_sa3 ren_a bl3 vref sa_q3 sa_qb3 vdd 0 sense_amp
 ** v3: Extended to 52000ns for 5000-cycle WRITE (50us)
 ** ========================================================
 .control
-pre_osdi /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
 save all
 tran 1n 52000n
 

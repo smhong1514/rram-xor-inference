@@ -28,7 +28,7 @@
 ** --------------------------------------------------------
 ** Sky130 PDK device models
 ** --------------------------------------------------------
-.lib /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
 
 ** --------------------------------------------------------
 ** RRAM cell model: fixed resistor for READ-only inference

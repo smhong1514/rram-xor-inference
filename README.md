@@ -179,7 +179,7 @@ source env.sh
 | ngspice | 43 (custom build) | SPICE simulation with d_cosim + KLU + OSDI |
 | Verilator | 5.x | Verilog compilation for d_cosim |
 | Sky130 PDK | bdc9412b | Process design kit with RRAM |
-| OpenLane | 1.1.1 (Docker) | RTL-to-GDS flow |
+| OpenLane | 1.1.1 (`efabless/openlane:latest`) | RTL-to-GDS flow |
 | Magic VLSI | 8.3+ | Layout extraction, DRC |
 | Python 3 | 3.10+ | Plotting (numpy, matplotlib) |
 

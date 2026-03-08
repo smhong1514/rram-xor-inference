@@ -1,0 +1,146 @@
+VERSION 5.7 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+MACRO rram_array_4x4_260222
+  CLASS BLOCK ;
+  FOREIGN rram_array_4x4_260222 0 0 ;
+  ORIGIN 0 0 ;
+  SIZE 18.870 BY 26.150 ;
+  SYMMETRY X Y ;
+
+  PIN WL[0]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 3.970 1.500 4.330 2.000 ;
+    END
+  END WL[0]
+
+  PIN WL[1]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 7.970 1.500 8.330 2.000 ;
+    END
+  END WL[1]
+
+  PIN WL[2]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 11.970 1.500 12.330 2.000 ;
+    END
+  END WL[2]
+
+  PIN WL[3]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 15.970 1.500 16.330 2.000 ;
+    END
+  END WL[3]
+
+  PIN BL[0]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 5.015 1.500 5.335 2.000 ;
+    END
+  END BL[0]
+
+  PIN BL[1]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 9.015 1.500 9.335 2.000 ;
+    END
+  END BL[1]
+
+  PIN BL[2]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 13.015 1.500 13.335 2.000 ;
+    END
+  END BL[2]
+
+  PIN BL[3]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met3 ;
+        RECT 17.015 1.500 17.335 2.000 ;
+    END
+  END BL[3]
+
+  PIN SL[0]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 18.830 4.270 19.330 4.590 ;
+    END
+  END SL[0]
+
+  PIN SL[1]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 18.830 9.770 19.330 10.090 ;
+    END
+  END SL[1]
+
+  PIN SL[2]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 18.830 15.270 19.330 15.590 ;
+    END
+  END SL[2]
+
+  PIN SL[3]
+    DIRECTION INOUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER met2 ;
+        RECT 18.830 20.770 19.330 21.090 ;
+    END
+  END SL[3]
+
+  PIN GND
+    DIRECTION INOUT ;
+    USE GROUND ;
+    PORT
+      LAYER met1 ;
+        RECT 1.500 2.300 2.000 2.800 ;
+    END
+  END GND
+
+  OBS
+    LAYER nwell ;
+      RECT 0.000 0.000 18.870 26.150 ;
+    LAYER li1 ;
+      RECT 0.500 0.500 18.370 25.650 ;
+    LAYER met1 ;
+      RECT 3.000 0.000 18.370 25.650 ;
+    LAYER met1 ;
+      RECT 0.000 3.800 3.000 25.650 ;
+    LAYER met2 ;
+      RECT 0.000 0.500 17.830 25.650 ;
+    LAYER met3 ;
+      RECT 0.000 3.000 18.870 25.650 ;
+  END
+
+END rram_array_4x4_260222
+
+END LIBRARY

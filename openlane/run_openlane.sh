@@ -2,7 +2,7 @@
 # ============================================================
 # Run OpenLane RTL-to-GDS flow for RRAM XOR Inference chip
 # ============================================================
-# Uses Docker image efabless/openlane:v1.1.1
+# Uses Docker image efabless/openlane:latest (contains OpenLane v1.1.1)
 # Produces: GDS, DEF, netlist, timing reports
 #
 # Prerequisites:
@@ -15,7 +15,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../env.sh"
 
-OPENLANE_TAG="v1.1.1"
+OPENLANE_TAG="latest"  # Contains OpenLane v1.1.1 (Nix-based)
 
 echo "============================================================"
 echo " OpenLane RTL-to-GDS: RRAM XOR Inference"

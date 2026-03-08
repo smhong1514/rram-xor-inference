@@ -33,8 +33,17 @@ FIXED="/tmp/rram_ctrl_top_vpb_fixed.spice"
 cp "$SPICE" "$FIXED"
 sed -i 's|FILLER_0_[0-9]*_[0-9]*/VPB|vccd1|g' "$FIXED"
 
-REPLACED=$(diff "$SPICE" "$FIXED" | grep -c '^[<>]' || true)
-echo "Fixed $((REPLACED/2)) VPB net references"
+VPB_REPLACED=$(diff "$SPICE" "$FIXED" | grep -c '^[<>]' || true)
+echo "Fixed $((VPB_REPLACED/2)) VPB net references"
+
+# Fix fanout buffer input disconnected from vref
+# (LEF extraction can split vref -> buf -> sa chain into separate nets)
+sed -i 's|fanout[0-9]*/A|vref|g' "$FIXED"
+echo "Fixed fanout*/A -> vref references"
+
+# Fix vref net split by buffer insertion (vref_uq0 = buffer input side)
+sed -i 's|vref_uq[0-9]*|vref|g' "$FIXED"
+echo "Fixed vref_uq* -> vref references"
 
 # Re-run netgen
 echo "Running netgen LVS..."

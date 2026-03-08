@@ -21,7 +21,7 @@
 ** --------------------------------------------------------
 ** Sky130 PDK device models
 ** --------------------------------------------------------
-.lib /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130.lib.spice tt
+.lib $PDK_ROOT/sky130B/libs.tech/ngspice/sky130.lib.spice tt
 
 ** --------------------------------------------------------
 ** RRAM cell model: fixed resistor for READ-only inference
@@ -471,7 +471,7 @@ x_sa2_1 sae2_a a2_bl1 vref_sa21 sa2_q1_a sa2_qb1_a vdd 0 sense_amp
 ** ========================================================
 .control
 * pre_osdi not needed (using fixed resistors instead of OSDI RRAM model)
-* pre_osdi /home/hsm/pdk_matched/share/pdk/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
+* pre_osdi $PDK_ROOT/sky130B/libs.tech/ngspice/sky130_fd_pr_reram__reram_module.osdi
 save all
 tran 1n 8000n
 
